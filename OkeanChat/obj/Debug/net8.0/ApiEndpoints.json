@@ -1,0 +1,54 @@
+[
+  {
+    "ContainingType": "OkeanChat.Controllers.ChatController",
+    "Method": "GetChannels",
+    "RelativePath": "api/Chat/channels",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.ChatController",
+    "Method": "GetMessages",
+    "RelativePath": "api/Chat/messages/{channelId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "channelId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.ChatController",
+    "Method": "CreateUser",
+    "RelativePath": "api/Chat/users",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "OkeanChat.Controllers.CreateUserRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  }
+]

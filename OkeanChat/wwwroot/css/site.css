@@ -1,0 +1,864 @@
+/* Custom styles for OkeanChat */
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.min-h-screen {
+    min-height: 100vh;
+}
+
+/* Logo styles */
+.logo-img {
+    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #374151;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #6b7280;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Message animations */
+.message {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Typing indicator animation */
+.typing-dots {
+    display: inline-block;
+}
+
+.typing-dots::after {
+    content: '';
+    animation: typing 1.5s infinite;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        content: '';
+    }
+    30% {
+        content: '.';
+    }
+    60% {
+        content: '..';
+    }
+    90% {
+        content: '...';
+    }
+}
+
+/* Modal dark theme */
+.modal-content {
+    background-color: #1f2937 !important;
+    border: 1px solid #374151;
+}
+
+.modal-header {
+    border-bottom: 1px solid #374151 !important;
+}
+
+.modal-footer {
+    border-top: 1px solid #374151 !important;
+}
+
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Form controls dark theme */
+.form-control {
+    background-color: #374151 !important;
+    border-color: #4b5563 !important;
+    color: white !important;
+}
+
+.form-control:focus {
+    background-color: #374151 !important;
+    border-color: #3b82f6 !important;
+    color: white !important;
+    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25) !important;
+}
+
+.form-control.is-invalid {
+    background-color: #374151 !important;
+    border-color: #dc2626 !important;
+    color: white !important;
+}
+
+.form-control.is-invalid:focus {
+    background-color: #374151 !important;
+    border-color: #dc2626 !important;
+    color: white !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 38, 38, 0.25) !important;
+}
+
+.form-label {
+    color: #d1d5db !important;
+}
+
+/* Validation error messages */
+.invalid-feedback {
+    display: block;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: #dc2626 !important;
+}
+
+.text-danger {
+    color: #dc2626 !important;
+}
+
+.field-validation-error {
+    color: #dc2626 !important;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.validation-summary-errors {
+    background-color: #1f2937;
+    border: 1px solid #dc2626;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.validation-summary-errors ul {
+    margin: 0;
+    padding-left: 1rem;
+    list-style-type: disc;
+}
+
+.validation-summary-errors li {
+    color: #dc2626;
+    margin-bottom: 0.25rem;
+}
+
+/* Button styles */
+.btn-primary {
+    background-color: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+}
+
+.btn-primary:hover {
+    background-color: #2563eb !important;
+    border-color: #2563eb !important;
+}
+
+.btn-secondary {
+    background-color: #6b7280 !important;
+    border-color: #6b7280 !important;
+}
+
+.btn-secondary:hover {
+    background-color: #4b5563 !important;
+    border-color: #4b5563 !important;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .w-64 {
+        width: 16rem;
+    }
+    
+    .min-h-screen {
+        flex-direction: column;
+    }
+    
+    .w-64 {
+        width: 100%;
+        height: auto;
+    }
+}
+
+/* Loading animation */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* WebRTC Styles */
+.call-btn {
+    transition: all 0.2s ease;
+}
+
+.call-btn:hover {
+    transform: scale(1.05);
+}
+
+#incomingCallModal {
+    backdrop-filter: blur(4px);
+}
+
+#callInterface {
+    backdrop-filter: blur(8px);
+}
+
+#localVideo {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+#remoteVideo {
+    background: #1f2937;
+}
+
+/* Online users list */
+#onlineUsersList {
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #374151;
+}
+
+#onlineUsersList::-webkit-scrollbar {
+    width: 4px;
+}
+
+#onlineUsersList::-webkit-scrollbar-track {
+    background: #374151;
+    border-radius: 2px;
+}
+
+#onlineUsersList::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 2px;
+}
+
+#onlineUsersList::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Call interface animations */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.call-btn:active {
+    animation: pulse 0.3s ease-in-out;
+}
+
+/* Video call styles */
+.video-call-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.remote-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.local-video {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 192px;
+    height: 144px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Call controls */
+.call-controls {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.call-control-btn {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.call-control-btn:hover {
+    transform: scale(1.1);
+}
+
+.end-call-btn {
+    background: #dc2626;
+    color: white;
+}
+
+.end-call-btn:hover {
+    background: #b91c1c;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .local-video {
+        width: 120px;
+        height: 90px;
+        top: 8px;
+        right: 8px;
+    }
+    
+    .call-control-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 18px;
+    }
+    
+/* Avatar upload styles */
+.avatar-upload-container {
+    position: relative;
+    display: inline-block;
+}
+
+.avatar-upload-btn {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #3b82f6;
+    border: 2px solid #1f2937;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.avatar-upload-btn:hover {
+    background: #2563eb;
+    transform: scale(1.1);
+}
+
+/* Ensure camera button is clickable */
+#changeAvatarBtn {
+    position: absolute !important;
+    bottom: -4px !important;
+    right: -4px !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    background: #3b82f6 !important;
+    border: 2px solid #1f2937 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    z-index: 10 !important;
+    color: white !important;
+    font-size: 14px !important;
+}
+
+#changeAvatarBtn:hover {
+    background: #2563eb !important;
+    transform: scale(1.1) !important;
+}
+
+#changeAvatarBtn:active {
+    transform: scale(0.95) !important;
+}
+
+.avatar-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #374151;
+}
+
+.file-upload-area {
+    border: 2px dashed #4b5563;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.file-upload-area:hover {
+    border-color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.05);
+}
+
+.file-upload-area.dragover {
+    border-color: #3b82f6;
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.upload-progress {
+    width: 100%;
+    height: 4px;
+    background-color: #374151;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background-color: #3b82f6;
+    transition: width 0.3s ease;
+}
+
+/* Avatar display improvements */
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+/* Avatar sizing and positioning */
+.avatar-container {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+    border-radius: 50%;
+}
+
+.avatar-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+}
+
+.avatar-container:hover img {
+    transform: scale(1.05);
+}
+
+/* Specific avatar sizes */
+.avatar-xs {
+    width: 20px;
+    height: 20px;
+}
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+}
+
+.avatar-md {
+    width: 40px;
+    height: 40px;
+}
+
+.avatar-lg {
+    width: 64px;
+    height: 64px;
+}
+
+.avatar-xl {
+    width: 80px;
+    height: 80px;
+}
+
+/* Navigation avatar styling - Perfect circle with border */
+.nav-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: center;
+    border: 2px solid #374151;
+    transition: all 0.2s ease;
+    display: block;
+    flex-shrink: 0;
+}
+
+.nav-avatar:hover {
+    border-color: #3b82f6;
+    transform: scale(1.05);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Message avatar styling - Perfect circle with enhanced border */
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: center;
+    border: 3px solid #3b82f6;
+    transition: all 0.3s ease;
+    display: block;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.message-avatar:hover {
+    border-color: #1d4ed8;
+    transform: scale(1.08);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+}
+
+/* Profile avatar styling - Perfect circle with border */
+.profile-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: center;
+    border: 3px solid #374151;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: block;
+    flex-shrink: 0;
+}
+
+.profile-avatar:hover {
+    border-color: #3b82f6;
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+}
+
+/* Avatar container - Ensures perfect circle with enhanced styling */
+.avatar-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    border: 3px solid #3b82f6;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    transition: all 0.3s ease;
+}
+
+.avatar-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.avatar-container:hover img {
+    transform: scale(1.05);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.avatar-container:hover {
+    border-color: #1d4ed8;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+    transform: translateY(-2px);
+}
+
+/* Notification styles */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: 500;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease-out;
+}
+
+.notification.success {
+    background-color: #10b981;
+}
+
+.notification.error {
+    background-color: #ef4444;
+}
+
+.notification.info {
+    background-color: #3b82f6;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Loading spinner */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+/* Button loading state */
+.btn-loading {
+  position: relative;
+    color: transparent !important;
+}
+
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+    .local-video {
+        width: 120px;
+        height: 90px;
+        top: 8px;
+        right: 8px;
+    }
+    
+    .call-control-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 18px;
+    }
+    
+    #incomingCallModal .bg-gray-800 {
+        margin: 16px;
+    }
+    
+    /* Mobile avatar adjustments */
+    .nav-avatar {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .message-avatar {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .profile-avatar {
+        width: 64px;
+        height: 64px;
+    }
+}
+
+/* Avatar loading states */
+.avatar-loading {
+    background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Avatar error states */
+.avatar-error {
+    background: #dc2626;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+
+/* Avatar with border effects */
+.avatar-online {
+    border: 2px solid #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.avatar-away {
+    border: 2px solid #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.avatar-busy {
+    border: 2px solid #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+/* Perfect circle enforcement */
+.avatar-perfect-circle {
+    border-radius: 50% !important;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    object-position: center;
+    overflow: hidden;
+}
+
+/* Avatar mask for perfect circle */
+.avatar-mask {
+    -webkit-mask: radial-gradient(circle, black 50%, transparent 50%);
+    mask: radial-gradient(circle, black 50%, transparent 50%);
+    border-radius: 50%;
+}
+
+/* Force circular shape */
+.force-circle {
+    border-radius: 50% !important;
+    width: var(--avatar-size, 40px);
+    height: var(--avatar-size, 40px);
+    min-width: var(--avatar-size, 40px);
+    min-height: var(--avatar-size, 40px);
+    max-width: var(--avatar-size, 40px);
+    max-height: var(--avatar-size, 40px);
+}
+
+/* Avatar with perfect border */
+.avatar-bordered {
+    border: 3px solid #3b82f6;
+    border-radius: 50%;
+    padding: 2px;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    transition: all 0.3s ease;
+}
+
+.avatar-bordered img {
+    border-radius: 50%;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.avatar-bordered:hover {
+    border-color: #1d4ed8;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+    transform: translateY(-2px);
+}
+
+.avatar-bordered:hover img {
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+}
+
+/* Chat message avatar specific styling */
+.chat-message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: center;
+    border: 3px solid #3b82f6;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    transition: all 0.3s ease;
+    display: block;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    padding: 2px;
+}
+
+.chat-message-avatar:hover {
+    border-color: #1d4ed8;
+    transform: scale(1.08);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+}
+
+/* Online status indicator for chat avatars */
+.chat-avatar-online::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    background: #10b981;
+    border: 2px solid #1f2937;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3);
+}
+
+.chat-avatar-away::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    background: #f59e0b;
+    border: 2px solid #1f2937;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3);
+}

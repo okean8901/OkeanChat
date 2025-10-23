@@ -1,0 +1,69 @@
+@model OkeanChat.Models.LoginViewModel
+@{
+    ViewData["Title"] = "Login - OkeanChat";
+}
+
+<div class="min-h-screen bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8">
+        <div>
+            <div class="mx-auto h-16 w-16 bg-gray-800 rounded-full flex items-center justify-center p-2">
+                <img src="~/img/logo.jpg" alt="OkeanChat Logo" class="w-full h-full object-contain rounded-full" />
+            </div>
+            <h2 class="mt-6 text-center text-3xl font-extrabold text-white">
+                Sign in to your account
+            </h2>
+            <p class="mt-2 text-center text-sm text-gray-400">
+                Welcome back to OkeanChat
+            </p>
+        </div>
+        <form class="mt-8 space-y-6" asp-action="Login" method="post">
+            <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
+            <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label asp-for="UserNameOrEmail" class="block text-sm font-medium text-gray-300">Username or Email</label>
+                    <input asp-for="UserNameOrEmail" class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-700 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm @(ViewData.ModelState["UserNameOrEmail"]?.Errors.Count > 0 ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "")" placeholder="Enter username or email" />
+                    <span asp-validation-for="UserNameOrEmail" class="text-red-400 text-sm mt-1 block"></span>
+                </div>
+
+                <div>
+                    <label asp-for="Password" class="block text-sm font-medium text-gray-300">Password</label>
+                    <input asp-for="Password" class="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-600 placeholder-gray-400 text-white bg-gray-700 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm @(ViewData.ModelState["Password"]?.Errors.Count > 0 ? "border-red-500 focus:ring-red-500 focus:border-red-500" : "")" placeholder="Enter password" />
+                    <span asp-validation-for="Password" class="text-red-400 text-sm mt-1 block"></span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input asp-for="RememberMe" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                        <label asp-for="RememberMe" class="ml-2 block text-sm text-gray-300">
+                            Remember me
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <button type="submit" class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <i class="fas fa-sign-in-alt text-blue-500 group-hover:text-blue-400"></i>
+                    </span>
+                    Sign In
+                </button>
+            </div>
+
+            <div class="text-center">
+                <p class="text-sm text-gray-400">
+                    Don't have an account?
+                    <a asp-action="Register" class="font-medium text-blue-400 hover:text-blue-300 transition duration-150 ease-in-out">
+                        Create one here
+                    </a>
+                </p>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

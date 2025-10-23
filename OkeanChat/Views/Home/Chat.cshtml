@@ -1,0 +1,419 @@
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<OkeanChat.Models.ApplicationUser> UserManager
+@{
+    ViewData["Title"] = "Chat - " + ViewBag.CurrentChannel.Name;
+}
+
+<div class="min-h-screen bg-gray-900 flex">
+    <!-- Sidebar -->
+    <div class="w-64 bg-gray-800 flex flex-col">
+        <!-- Header -->
+        <div class="p-4 border-b border-gray-700">
+            <div class="flex items-center">
+                <img src="~/img/logo.jpg" alt="OkeanChat Logo" class="w-10 h-10 rounded mr-3" />
+                <h1 class="text-xl font-bold text-white">OkeanChat</h1>
+            </div>
+        </div>
+
+        <!-- Channels -->
+        <div class="flex-1 p-4">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Channels</h2>
+                <button id="addChannelBtn" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-1">
+                @if (ViewBag.Channels != null)
+                {
+                    @foreach (var channel in ViewBag.Channels as List<OkeanChat.Models.Channel>)
+                    {
+                        var isActive = channel.Id == ViewBag.CurrentChannel.Id;
+                        <a href="@Url.Action("Chat", "Home", new { channelId = channel.Id })" 
+                           class="flex items-center px-3 py-2 text-sm rounded-md group @(isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700 hover:text-white")">
+                            <i class="fas fa-hashtag text-gray-500 mr-2 group-hover:text-gray-300"></i>
+                            @channel.Name
+                        </a>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Online Users -->
+        <div class="p-4 border-t border-gray-700">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Online Users</h2>
+                <button id="refreshUsersBtn" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            
+            <div id="onlineUsersList" class="space-y-1 max-h-48 overflow-y-auto">
+                <!-- Online users will be populated here -->
+            </div>
+        </div>
+
+        <!-- User Info -->
+        <div class="p-4 border-t border-gray-700">
+            <div class="flex items-center">
+                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden avatar-container avatar-bordered" style="--avatar-size: 32px;">
+                    @{
+                        var user = await UserManager.GetUserAsync(User);
+                        if (user != null && !string.IsNullOrEmpty(user.Avatar))
+                        {
+                            <img id="navAvatar" src="@user.Avatar" alt="@user.DisplayName" class="nav-avatar avatar-perfect-circle force-circle">
+                        }
+                        else
+                        {
+                            <span class="text-sm font-semibold text-white">@User.Identity?.Name?.Substring(0, 1).ToUpper()</span>
+                        }
+                    }
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-white">@User.Identity?.Name</p>
+                    <p class="text-xs text-gray-400">Online</p>
+                </div>
+            </div>
+            <div class="mt-2 space-y-1">
+                <a asp-action="Profile" asp-controller="Account" class="block text-xs text-gray-400 hover:text-white">Profile</a>
+                <form asp-action="Logout" asp-controller="Account" method="post" class="inline">
+                    <button type="submit" class="text-xs text-gray-400 hover:text-white">Sign Out</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="flex-1 flex flex-col">
+        <!-- Channel Header -->
+        <div class="bg-gray-800 border-b border-gray-700 px-6 py-4">
+            <div class="flex items-center">
+                <i class="fas fa-hashtag text-gray-400 mr-2"></i>
+                <h2 class="text-lg font-semibold text-white">@ViewBag.CurrentChannel.Name</h2>
+                @if (!string.IsNullOrEmpty(ViewBag.CurrentChannel.Description))
+                {
+                    <span class="ml-4 text-sm text-gray-400">@ViewBag.CurrentChannel.Description</span>
+                }
+            </div>
+        </div>
+
+        <!-- Messages Area -->
+        <div class="flex-1 overflow-y-auto p-6" id="messagesContainer">
+            <div id="messagesList">
+                @if (ViewBag.Messages != null)
+                {
+                    @foreach (var message in ViewBag.Messages as List<OkeanChat.Models.Message>)
+                    {
+                        <div class="message mb-4 flex">
+                            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3 flex-shrink-0 avatar-container avatar-bordered chat-avatar-online" style="--avatar-size: 40px;">
+                                @if (!string.IsNullOrEmpty(message.User.Avatar))
+                                {
+                                    <img src="@message.User.Avatar" alt="@(message.User.DisplayName ?? message.User.UserName)" class="chat-message-avatar avatar-perfect-circle force-circle">
+                                }
+                                else
+                                {
+                                    <span class="text-sm font-semibold text-white">@(message.User.DisplayName ?? message.User.UserName).Substring(0, 1).ToUpper()</span>
+                                }
+                            </div>
+                            <div class="flex-1">
+                        <div class="flex items-baseline mb-1">
+                            <span class="font-semibold text-white mr-2">@(message.User.DisplayName ?? message.User.UserName)</span>
+                            <span class="text-xs text-gray-400">@message.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                            @if (message.IsEdited)
+                            {
+                                <span class="text-xs text-gray-500 ml-2">(edited)</span>
+                            }
+                        </div>
+                                <div class="text-gray-300">@message.Content</div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div id="typingIndicator" class="px-6 py-2 text-sm text-gray-400 hidden">
+            <span id="typingUsers"></span>
+        </div>
+
+        <!-- Message Input -->
+        <div class="bg-gray-800 border-t border-gray-700 p-6">
+            <div class="flex items-center">
+                <div class="flex-1 relative">
+                    <input type="text" id="messageInput" 
+                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500" 
+                           placeholder="Message #@ViewBag.CurrentChannel.Name">
+                    <button id="sendButton" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Channel Modal -->
+<div class="modal fade" id="addChannelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-gray-800 text-white">
+            <div class="modal-header border-gray-700">
+                <h5 class="modal-title">Create New Channel</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addChannelForm">
+                    <div class="mb-3">
+                        <label for="channelName" class="form-label">Channel Name</label>
+                        <input type="text" class="form-control bg-gray-700 border-gray-600 text-white" 
+                               id="channelName" name="name" placeholder="e.g., general" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="channelDescription" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control bg-gray-700 border-gray-600 text-white" 
+                                  id="channelDescription" name="description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-gray-700">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createChannelBtn">Create Channel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let connection;
+        let currentChannelId = @ViewBag.CurrentChannel.Id;
+        let typingTimer;
+
+        $(document).ready(function() {
+            initializeSignalR();
+
+            // Send message
+            $('#sendButton').click(sendMessage);
+            $('#messageInput').keypress(function(e) {
+                if (e.which === 13) {
+                    sendMessage();
+                }
+            });
+
+            // Typing indicator
+            $('#messageInput').on('input', function() {
+                if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                    connection.invoke("StartTyping", currentChannelId);
+                    
+                    clearTimeout(typingTimer);
+                    typingTimer = setTimeout(() => {
+                        connection.invoke("StopTyping", currentChannelId);
+                    }, 1000);
+                }
+            });
+
+            // Show add channel modal
+            $('#addChannelBtn').click(function() {
+                $('#addChannelModal').modal('show');
+            });
+
+            // Create channel
+            $('#createChannelBtn').click(function() {
+                const name = $('#channelName').val();
+                const description = $('#channelDescription').val();
+
+                if (!name.trim()) {
+                    alert('Channel name is required');
+                    return;
+                }
+
+                $.post('@Url.Action("CreateChannel", "Home")', {
+                    name: name,
+                    description: description
+                }, function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert(response.message);
+                    }
+                });
+            });
+        });
+
+        function initializeSignalR() {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/chatHub")
+                .build();
+
+            connection.start().then(function() {
+                console.log("SignalR Connected");
+                connection.invoke("JoinChannel", currentChannelId);
+            }).catch(function(err) {
+                console.error("SignalR Connection Error: " + err.toString());
+            });
+
+            // Receive message
+            connection.on("ReceiveMessage", function(message) {
+                addMessageToUI(message);
+            });
+
+            // User typing
+            connection.on("UserTyping", function(typingUser) {
+                showTypingIndicator(typingUser.username);
+            });
+
+            // User stopped typing
+            connection.on("UserStoppedTyping", function(typingUser) {
+                hideTypingIndicator(typingUser.username);
+            });
+
+            // User joined
+            connection.on("UserJoined", function(username) {
+                console.log(username + " joined the channel");
+            });
+
+            // User left
+            connection.on("UserLeft", function(username) {
+                console.log(username + " left the channel");
+            });
+        }
+
+        function sendMessage() {
+            const message = $('#messageInput').val().trim();
+            if (message && connection && connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke("SendMessage", message, currentChannelId);
+                $('#messageInput').val('');
+                
+                // Stop typing
+                connection.invoke("StopTyping", currentChannelId);
+            }
+        }
+
+        function addMessageToUI(message) {
+            const messageHtml = `
+                <div class="message mb-4 flex">
+                    <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3 flex-shrink-0 avatar-container avatar-bordered chat-avatar-online" style="--avatar-size: 40px;">
+                        ${message.avatar ? 
+                            `<img src="${message.avatar}" alt="${message.username}" class="chat-message-avatar avatar-perfect-circle force-circle">` :
+                            `<span class="text-sm font-semibold text-white">${message.username.charAt(0).toUpperCase()}</span>`
+                        }
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-baseline mb-1">
+                            <span class="font-semibold text-white mr-2">${message.username}</span>
+                            <span class="text-xs text-gray-400">${new Date(message.createdAt).toLocaleString()}</span>
+                            ${message.isEdited ? '<span class="text-xs text-gray-500 ml-2">(edited)</span>' : ''}
+                        </div>
+                        <div class="text-gray-300">${message.content}</div>
+                    </div>
+                </div>
+            `;
+            
+            $('#messagesList').append(messageHtml);
+            scrollToBottom();
+        }
+
+        function showTypingIndicator(username) {
+            const typingUsers = $('#typingUsers').text();
+            if (!typingUsers.includes(username)) {
+                const newText = typingUsers ? `${typingUsers}, ${username}` : `${username} is typing...`;
+                $('#typingUsers').text(newText);
+                $('#typingIndicator').removeClass('hidden');
+            }
+        }
+
+        function hideTypingIndicator(username) {
+            const typingUsers = $('#typingUsers').text();
+            const newText = typingUsers.replace(`, ${username}`, '').replace(`${username}, `, '').replace(`${username} is typing...`, '');
+            if (newText.trim()) {
+                $('#typingUsers').text(newText);
+            } else {
+                $('#typingIndicator').addClass('hidden');
+            }
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('messagesContainer');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Scroll to bottom on page load
+        $(window).on('load', function() {
+            scrollToBottom();
+        });
+
+        // Refresh online users
+        $('#refreshUsersBtn').click(function() {
+            if (window.webrtcManager) {
+                window.webrtcManager.getOnlineUsers();
+            }
+        });
+
+        // Function to update navigation avatar
+        function updateNavigationAvatar(avatarUrl) {
+            const navAvatar = document.getElementById('navAvatar');
+            if (navAvatar) {
+                navAvatar.src = avatarUrl;
+            }
+        }
+
+        // Listen for avatar updates from other tabs
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'avatarUpdated') {
+                const avatarData = JSON.parse(e.newValue);
+                updateNavigationAvatar(avatarData.avatarUrl);
+            }
+        });
+    </script>
+
+    <!-- Incoming Call Modal -->
+    <div id="incomingCallModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-lg p-6 max-w-sm w-full mx-4">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-phone text-white text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-white mb-2">Incoming Call</h3>
+                <p class="text-gray-300 mb-1" id="callerName">Unknown</p>
+                <p class="text-sm text-gray-400 mb-6" id="callType">Audio Call</p>
+                
+                <div class="flex space-x-4 justify-center">
+                    <button class="reject-call-btn bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg flex items-center">
+                        <i class="fas fa-phone-slash mr-2"></i>
+                        Reject
+                    </button>
+                    <button class="accept-call-btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center">
+                        <i class="fas fa-phone mr-2"></i>
+                        Accept
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Interface -->
+    <div id="callInterface" class="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 hidden">
+        <div class="w-full h-full max-w-4xl max-h-screen p-4">
+            <div class="relative w-full h-full bg-gray-900 rounded-lg overflow-hidden">
+                <!-- Remote Video -->
+                <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+                
+                <!-- Local Video (for video calls) -->
+                <video id="localVideo" autoplay playsinline muted class="absolute top-4 right-4 w-48 h-36 object-cover rounded-lg border-2 border-white"></video>
+                
+                <!-- Call Controls -->
+                <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
+                    <button class="end-call-btn bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full flex items-center">
+                        <i class="fas fa-phone-slash text-xl"></i>
+                    </button>
+                </div>
+                
+                <!-- Call Info -->
+                <div class="absolute top-4 left-4 bg-black bg-opacity-50 rounded-lg p-4">
+                    <h3 class="text-white font-semibold" id="callInfo">Call in progress...</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+}

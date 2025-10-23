@@ -1,0 +1,323 @@
+@model OkeanChat.Models.ApplicationUser
+@{
+    ViewData["Title"] = "Profile - " + Model.DisplayName;
+}
+
+<div class="min-h-screen bg-gray-900">
+    <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <!-- Profile Header -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <div class="flex items-center space-x-4">
+                <div class="relative">
+                    <div class="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center p-2 overflow-hidden avatar-container avatar-bordered" style="--avatar-size: 80px;">
+                        @if (!string.IsNullOrEmpty(Model.Avatar))
+                        {
+                            <img id="currentAvatar" src="@Model.Avatar" alt="@Model.DisplayName" class="profile-avatar avatar-perfect-circle force-circle">
+                        }
+                        else
+                        {
+                            <img id="currentAvatar" src="~/img/logo.jpg" alt="OkeanChat Logo" class="profile-avatar avatar-perfect-circle force-circle" />
+                        }
+                    </div>
+                    <button id="changeAvatarBtn" class="absolute -bottom-1 -right-1 w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center text-sm transition duration-150 ease-in-out">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-white">@Model.DisplayName</h1>
+                    <p class="text-gray-400">@Model.UserName</p>
+                    <p class="text-gray-400">@Model.Email</p>
+                    <p class="text-sm text-gray-500">Member since @Model.CreatedAt.ToString("MMMM yyyy")</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avatar Upload Section -->
+        <div id="avatarUploadSection" class="bg-gray-800 rounded-lg p-6 mb-6 hidden">
+            <h2 class="text-xl font-semibold text-white mb-4">Change Avatar</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Upload New Avatar</label>
+                    <div class="flex items-center space-x-4">
+                        <input type="file" id="avatarFileInput" accept="image/*" class="hidden">
+                        <button id="selectFileBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                            <i class="fas fa-upload mr-2"></i>
+                            Choose File
+                        </button>
+                        <span id="fileName" class="text-gray-400 text-sm"></span>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Supported formats: JPG, PNG, GIF, WebP. Max size: 5MB</p>
+                </div>
+                
+                <div class="flex space-x-4">
+                    <button id="uploadAvatarBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fas fa-check mr-2"></i>
+                        Upload Avatar
+                    </button>
+                    <button id="removeAvatarBtn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-150 ease-in-out">
+                        <i class="fas fa-trash mr-2"></i>
+                        Remove Avatar
+                    </button>
+                    <button id="cancelAvatarBtn" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition duration-150 ease-in-out">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Form -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold text-white mb-4">Update Profile</h2>
+            <form asp-action="UpdateProfile" method="post" class="space-y-4">
+                @Html.AntiForgeryToken()
+                <div>
+                    <label class="block text-sm font-medium text-gray-300">Display Name</label>
+                    <input name="displayName" value="@Model.DisplayName" class="mt-1 w-full px-3 py-2 border border-gray-600 text-white bg-gray-700 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                <button type="submit" class="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                    Update Profile
+                </button>
+            </form>
+        </div>
+
+        <!-- Recent Messages -->
+        @if (ViewBag.UserMessages != null)
+        {
+            <div class="bg-gray-800 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-white mb-4">Recent Messages</h2>
+                <div class="space-y-3">
+                    @foreach (var message in ViewBag.UserMessages as List<OkeanChat.Models.Message>)
+                    {
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-blue-400 font-medium">#@message.Channel.Name</span>
+                                <span class="text-gray-400 text-sm">@message.CreatedAt.ToString("MMM dd, yyyy HH:mm")</span>
+                            </div>
+                            <p class="text-gray-300">@message.Content</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Actions -->
+        <div class="mt-6 flex space-x-4">
+            <a asp-action="Index" asp-controller="Home" class="flex-1 py-2 px-4 bg-gray-700 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 transition duration-150 ease-in-out text-center">
+                <i class="fas fa-home mr-2"></i>
+                Back to Chat
+            </a>
+            <form asp-action="Logout" asp-controller="Account" method="post" class="flex-1">
+                <button type="submit" class="w-full py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-150 ease-in-out">
+                    <i class="fas fa-sign-out-alt mr-2"></i>
+                    Sign Out
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+// Fallback if jQuery is not loaded
+if (typeof $ === 'undefined') {
+    console.error('jQuery is not loaded!');
+    // Add basic functionality without jQuery
+    document.addEventListener('DOMContentLoaded', function() {
+        const changeAvatarBtn = document.getElementById('changeAvatarBtn');
+        const avatarUploadSection = document.getElementById('avatarUploadSection');
+        
+        if (changeAvatarBtn && avatarUploadSection) {
+            changeAvatarBtn.addEventListener('click', function() {
+                console.log('Camera button clicked (fallback)');
+                avatarUploadSection.classList.remove('hidden');
+            });
+        }
+    });
+} else {
+    $(document).ready(function() {
+        console.log('Profile page loaded, jQuery version:', $.fn.jquery);
+        let selectedFile = null;
+
+    // Show/hide avatar upload section
+    $('#changeAvatarBtn').click(function() {
+        console.log('Camera button clicked');
+        $('#avatarUploadSection').removeClass('hidden');
+        console.log('Upload section should be visible now');
+    });
+
+    $('#cancelAvatarBtn').click(function() {
+        $('#avatarUploadSection').addClass('hidden');
+        resetFileSelection();
+    });
+
+    // File selection
+    $('#selectFileBtn').click(function() {
+        $('#avatarFileInput').click();
+    });
+
+    $('#avatarFileInput').change(function() {
+        const file = this.files[0];
+        if (file) {
+            selectedFile = file;
+            $('#fileName').text(file.name);
+            $('#uploadAvatarBtn').prop('disabled', false);
+            
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $('#currentAvatar').attr('src', e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Upload avatar
+    $('#uploadAvatarBtn').click(function() {
+        if (!selectedFile) {
+            showNotification('Please select a file first.', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('avatarFile', selectedFile);
+        
+        // Get anti-forgery token
+        const token = $('input[name="__RequestVerificationToken"]').val();
+        if (!token) {
+            showNotification('Security token not found. Please refresh the page.', 'error');
+            return;
+        }
+        formData.append('__RequestVerificationToken', token);
+
+        console.log('Uploading file:', selectedFile.name, 'Size:', selectedFile.size, 'Type:', selectedFile.type);
+
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>Uploading...');
+
+        $.ajax({
+            url: '@Url.Action("UploadAvatar", "Account")',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                console.log('Upload response:', response);
+                if (response && response.success) {
+                    showNotification(response.message, 'success');
+                    $('#avatarUploadSection').addClass('hidden');
+                    resetFileSelection();
+                    // Update avatar in the header
+                    $('#currentAvatar').attr('src', response.avatarUrl);
+                    // Update navigation avatars
+                    updateNavigationAvatars(response.avatarUrl);
+                } else {
+                    showNotification(response ? response.message : 'Upload failed', 'error');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Upload error:', xhr.responseText, status, error);
+                let errorMessage = 'Error uploading avatar. Please try again.';
+                
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMessage = xhr.responseJSON.message;
+                } else if (xhr.status === 413) {
+                    errorMessage = 'File too large. Maximum size is 5MB.';
+                } else if (xhr.status === 400) {
+                    errorMessage = 'Invalid file type. Only JPG, PNG, GIF, and WebP are allowed.';
+                }
+                
+                showNotification(errorMessage, 'error');
+            },
+            complete: function() {
+                $('#uploadAvatarBtn').prop('disabled', false).html('<i class="fas fa-check mr-2"></i>Upload Avatar');
+            }
+        });
+    });
+
+    // Remove avatar
+    $('#removeAvatarBtn').click(function() {
+        if (!confirm('Are you sure you want to remove your avatar?')) return;
+
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>Removing...');
+
+        $.ajax({
+            url: '@Url.Action("RemoveAvatar", "Account")',
+            type: 'POST',
+            data: {
+                __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    showNotification(response.message, 'success');
+                    $('#avatarUploadSection').addClass('hidden');
+                    resetFileSelection();
+                    // Reset to default avatar
+                    $('#currentAvatar').attr('src', '@Url.Content("~/img/logo.jpg")');
+                    // Update navigation avatars to default
+                    updateNavigationAvatars('@Url.Content("~/img/logo.jpg")');
+                } else {
+                    showNotification(response.message, 'error');
+                }
+            },
+            error: function() {
+                showNotification('Error removing avatar. Please try again.', 'error');
+            },
+            complete: function() {
+                $('#removeAvatarBtn').prop('disabled', false).html('<i class="fas fa-trash mr-2"></i>Remove Avatar');
+            }
+        });
+    });
+
+    function resetFileSelection() {
+        selectedFile = null;
+        $('#avatarFileInput').val('');
+        $('#fileName').text('');
+        $('#uploadAvatarBtn').prop('disabled', true);
+    }
+
+    function updateNavigationAvatars(avatarUrl) {
+        // Update navigation avatars in current tab
+        const navAvatars = document.querySelectorAll('#navAvatar, #navAvatarIndex');
+        navAvatars.forEach(avatar => {
+            if (avatar) {
+                avatar.src = avatarUrl;
+            }
+        });
+        
+        // Also update any other avatar elements that might exist
+        const allAvatars = document.querySelectorAll('img[alt*="DisplayName"], img[alt*="UserName"]');
+        allAvatars.forEach(avatar => {
+            if (avatar && avatar.src.includes('/avatars/')) {
+                avatar.src = avatarUrl;
+            }
+        });
+        
+        // Notify other tabs about avatar update
+        localStorage.setItem('avatarUpdated', JSON.stringify({
+            avatarUrl: avatarUrl,
+            timestamp: Date.now()
+        }));
+        
+        console.log('Navigation avatars updated with:', avatarUrl);
+    }
+
+    function showNotification(message, type) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+            type === 'success' ? 'bg-green-600' : 
+            type === 'error' ? 'bg-red-600' : 
+            'bg-blue-600'
+        } text-white`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        // Auto remove after 3 seconds
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+});
+}
+</script>
+}

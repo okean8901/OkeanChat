@@ -1,0 +1,31 @@
+@{
+    ViewData["Title"] = "Access Denied - OkeanChat";
+}
+
+<div class="min-h-screen bg-gray-900 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8 text-center">
+        <div>
+            <div class="mx-auto h-16 w-16 bg-gray-800 rounded-full flex items-center justify-center p-2">
+                <img src="~/img/logo.jpg" alt="OkeanChat Logo" class="w-full h-full object-contain rounded-full" />
+            </div>
+            <h2 class="mt-6 text-center text-3xl font-extrabold text-white">
+                Access Denied
+            </h2>
+            <p class="mt-2 text-center text-sm text-gray-400">
+                You don't have permission to access this resource
+            </p>
+        </div>
+        
+        <div class="space-y-4">
+            <a asp-action="Login" asp-controller="Account" class="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out">
+                <i class="fas fa-sign-in-alt mr-2"></i>
+                Sign In
+            </a>
+            
+            <a asp-action="Index" asp-controller="Home" class="w-full flex justify-center py-2 px-4 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out">
+                <i class="fas fa-home mr-2"></i>
+                Go Home
+            </a>
+        </div>
+    </div>
+</div>
