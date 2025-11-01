@@ -50,5 +50,105 @@
       }
     ],
     "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "AcceptFriendRequest",
+    "RelativePath": "api/Friend/accept",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "model",
+        "Type": "OkeanChat.Controllers.FriendRequestModel",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "GetFriends",
+    "RelativePath": "api/Friend/list",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "RejectFriendRequest",
+    "RelativePath": "api/Friend/reject",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "model",
+        "Type": "OkeanChat.Controllers.FriendRequestModel",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "RemoveFriend",
+    "RelativePath": "api/Friend/remove",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "model",
+        "Type": "OkeanChat.Controllers.FriendRequestModel",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "SendFriendRequest",
+    "RelativePath": "api/Friend/request",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "model",
+        "Type": "OkeanChat.Controllers.FriendRequestModel",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "GetFriendRequests",
+    "RelativePath": "api/Friend/requests",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "SearchUsers",
+    "RelativePath": "api/Friend/search",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "username",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
   }
 ]

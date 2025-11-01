@@ -42,6 +42,41 @@
             </div>
         </div>
 
+        <!-- Friends Section -->
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <div class="p-4 border-t border-gray-700">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Friends</h2>
+                    <button id="addFriendBtn" class="text-gray-400 hover:text-white" title="Add Friend">
+                        <i class="fas fa-user-plus"></i>
+                    </button>
+                </div>
+                
+                <!-- Search Friends -->
+                <div class="mb-3">
+                    <input type="text" id="searchFriendInput" 
+                           class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm placeholder-gray-400 focus:outline-none focus:border-blue-500" 
+                           placeholder="Search username...">
+                </div>
+                
+                <div id="searchResults" class="mb-3 hidden space-y-1"></div>
+                
+                <!-- Friend Requests Badge -->
+                <div id="friendRequestsBadge" class="mb-3 hidden">
+                    <button id="friendRequestsBtn" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm flex items-center justify-between">
+                        <span>Friend Requests</span>
+                        <span id="friendRequestsCount" class="bg-white text-yellow-600 rounded-full px-2 py-1 text-xs font-bold">0</span>
+                    </button>
+                </div>
+                
+                <!-- Friends List -->
+                <div id="friendsList" class="space-y-1 max-h-48 overflow-y-auto">
+                    <!-- Friends will be populated here -->
+                </div>
+            </div>
+        }
+
         <!-- User Info -->
         <div class="p-4 border-t border-gray-700">
             @if (User.Identity?.IsAuthenticated == true)
@@ -155,6 +190,9 @@
 
     @section Scripts {
         <script>
+            let currentUserId = '@((await UserManager.GetUserAsync(User))?.Id ?? "")';
+            let friendSearchTimer = null;
+
             $(document).ready(function() {
                 // Show add channel modal
                 $('#addChannelBtn').click(function() {
@@ -182,7 +220,375 @@
                         }
                     });
                 });
+
+                // Friend Functions
+                if (currentUserId) {
+                    loadFriends();
+                    loadFriendRequests();
+
+                    // Search friends
+                    $('#searchFriendInput').on('input', function() {
+                        const query = $(this).val().trim();
+                        if (query.length < 3) {
+                            $('#searchResults').addClass('hidden').empty();
+                            return;
+                        }
+
+                        clearTimeout(friendSearchTimer);
+                        friendSearchTimer = setTimeout(() => {
+                            searchUsers(query);
+                        }, 500);
+                    });
+
+                    // Add friend button
+                    $('#addFriendBtn').click(function() {
+                        $('#searchFriendInput').focus();
+                    });
+
+                    // Friend requests button
+                    $('#friendRequestsBtn').click(function() {
+                        showFriendRequestsModal();
+                    });
+                }
+            });
+
+            function searchUsers(username) {
+                $.get('/api/Friend/search', { username: username })
+                    .done(function(users) {
+                        const searchResults = $('#searchResults');
+                        searchResults.removeClass('hidden').empty();
+
+                        if (users.length === 0) {
+                            searchResults.html('<p class="text-gray-400 text-sm p-2">No users found</p>');
+                            return;
+                        }
+
+                        users.forEach(function(user) {
+                            const userElement = createSearchUserElement(user);
+                            searchResults.append(userElement);
+                        });
+                    })
+                    .fail(function() {
+                        console.error('Failed to search users');
+                    });
+            }
+
+            function createSearchUserElement(user) {
+                const div = $('<div>')
+                    .addClass('flex items-center justify-between p-2 bg-gray-700 rounded')
+                    .attr('data-user-id', user.id);
+                
+                const userInfo = $('<div>').addClass('flex items-center');
+                const avatar = $('<div>').addClass('w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3 overflow-hidden');
+                
+                if (user.avatar) {
+                    avatar.html(`<img src="${user.avatar}" alt="${user.displayName}" class="w-8 h-8 rounded-full">`);
+                } else {
+                    avatar.html(`<span class="text-sm font-semibold text-white">${user.displayName.charAt(0).toUpperCase()}</span>`);
+                }
+                
+                const name = $('<span>').addClass('text-white text-sm').text(user.displayName);
+                userInfo.append(avatar).append(name);
+                
+                // Check friendship status
+                const friendshipStatus = user.friendshipStatus;
+                let actionBtn;
+                
+                if (friendshipStatus && friendshipStatus.status === 'Pending') {
+                    if (friendshipStatus.isRequester) {
+                        // User sent request, show Cancel button
+                        actionBtn = $('<button>')
+                            .addClass('bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs')
+                            .html('<i class="fas fa-times"></i> Cancel')
+                            .click(function() {
+                                cancelFriendRequest(user.id);
+                            });
+                    } else {
+                        // User received request, show Accept/Reject
+                        actionBtn = $('<span>')
+                            .addClass('text-yellow-400 text-xs')
+                            .text('Pending');
+                    }
+                } else if (friendshipStatus && friendshipStatus.status === 'Accepted') {
+                    // Already friends
+                    actionBtn = $('<span>')
+                        .addClass('text-green-400 text-xs')
+                        .text('Friends');
+                } else {
+                    // No request, show Add button
+                    actionBtn = $('<button>')
+                        .addClass('bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs')
+                        .html('<i class="fas fa-user-plus"></i> Add')
+                        .click(function() {
+                            sendFriendRequest(user.id);
+                        });
+                }
+                
+                div.append(userInfo).append(actionBtn);
+                return div;
+            }
+
+            function sendFriendRequest(userId) {
+                $.post('/api/Friend/request', { userId: userId })
+                    .done(function(response) {
+                        // Update the button to Cancel
+                        updateSearchUserButton(userId, 'sent');
+                    })
+                    .fail(function(xhr) {
+                        const error = xhr.responseJSON?.message || 'Failed to send friend request';
+                        alert(error);
+                    });
+            }
+
+            function cancelFriendRequest(userId) {
+                $.post('/api/Friend/cancel', { userId: userId })
+                    .done(function(response) {
+                        // Update the button back to Add
+                        updateSearchUserButton(userId, 'none');
+                    })
+                    .fail(function(xhr) {
+                        const error = xhr.responseJSON?.message || 'Failed to cancel friend request';
+                        alert(error);
+                    });
+            }
+
+            function updateSearchUserButton(userId, status) {
+                const userDiv = $(`#searchResults [data-user-id="${userId}"]`);
+                if (userDiv.length === 0) return;
+
+                const actionBtn = userDiv.find('button, span').last();
+                const isButton = actionBtn.is('button');
+                
+                if (status === 'sent') {
+                    // Change to Cancel button
+                    if (!isButton) {
+                        // Replace span with button
+                        const newBtn = $('<button>')
+                            .addClass('bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs')
+                            .html('<i class="fas fa-times"></i> Cancel')
+                            .click(function() {
+                                cancelFriendRequest(userId);
+                            });
+                        actionBtn.replaceWith(newBtn);
+                    } else {
+                        actionBtn.removeClass('bg-green-600 hover:bg-green-700')
+                                .addClass('bg-red-600 hover:bg-red-700')
+                                .html('<i class="fas fa-times"></i> Cancel')
+                                .off('click')
+                                .click(function() {
+                                    cancelFriendRequest(userId);
+                                });
+                    }
+                } else if (status === 'none') {
+                    // Change back to Add button
+                    if (!isButton) {
+                        // Replace span with button
+                        const newBtn = $('<button>')
+                            .addClass('bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs')
+                            .html('<i class="fas fa-user-plus"></i> Add')
+                            .click(function() {
+                                sendFriendRequest(userId);
+                            });
+                        actionBtn.replaceWith(newBtn);
+                    } else {
+                        actionBtn.removeClass('bg-red-600 hover:bg-red-700')
+                                .addClass('bg-green-600 hover:bg-green-700')
+                                .html('<i class="fas fa-user-plus"></i> Add')
+                                .off('click')
+                                .click(function() {
+                                    sendFriendRequest(userId);
+                                });
+                    }
+                }
+            }
+
+            function loadFriends() {
+                $.get('/api/Friend/list')
+                    .done(function(friendships) {
+                        const friendsList = $('#friendsList');
+                        friendsList.empty();
+
+                        if (friendships.length === 0) {
+                            friendsList.html('<p class="text-gray-400 text-sm p-2">No friends yet</p>');
+                            return;
+                        }
+
+                        friendships.forEach(function(friendship) {
+                            const friendElement = createFriendElement(friendship.friend, friendship.friendshipId);
+                            friendsList.append(friendElement);
+                        });
+                    })
+                    .fail(function() {
+                        console.error('Failed to load friends');
+                    });
+            }
+
+            function createFriendElement(friend, friendshipId) {
+                const div = $('<div>')
+                    .addClass('flex items-center justify-between p-2 hover:bg-gray-700 rounded cursor-pointer friend-item')
+                    .attr('data-friend-id', friend.id)
+                    .attr('data-friendship-id', friendshipId);
+                
+                const userInfo = $('<div>').addClass('flex items-center flex-1');
+                const avatar = $('<div>').addClass('relative w-8 h-8 mr-3');
+                
+                const avatarImg = $('<div>').addClass('w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden');
+                if (friend.avatar) {
+                    avatarImg.html(`<img src="${friend.avatar}" alt="${friend.displayName}" class="w-8 h-8 rounded-full">`);
+                } else {
+                    avatarImg.html(`<span class="text-sm font-semibold text-white">${friend.displayName.charAt(0).toUpperCase()}</span>`);
+                }
+                
+                const onlineDot = $('<div>').addClass('absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800');
+                avatar.append(avatarImg).append(onlineDot);
+                
+                const name = $('<span>').addClass('text-white text-sm').text(friend.displayName);
+                userInfo.append(avatar).append(name);
+                
+                const actions = $('<div>').addClass('flex space-x-1');
+                const chatBtn = $('<button>')
+                    .addClass('bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs')
+                    .html('<i class="fas fa-comment"></i>')
+                    .click(function(e) {
+                        e.stopPropagation();
+                        window.location.href = '/Home/Chat?channelId=1';
+                        // Open private chat will be handled in Chat view
+                    });
+                
+                actions.append(chatBtn);
+                div.append(userInfo).append(actions);
+                
+                // Click to go to chat and open private chat
+                div.click(function() {
+                    window.location.href = '/Home/Chat?channelId=1&friendId=' + friend.id;
+                });
+                
+                return div;
+            }
+
+            function loadFriendRequests() {
+                $.get('/api/Friend/requests')
+                    .done(function(requests) {
+                        if (requests.length > 0) {
+                            $('#friendRequestsCount').text(requests.length);
+                            $('#friendRequestsBadge').removeClass('hidden');
+                        } else {
+                            $('#friendRequestsBadge').addClass('hidden');
+                        }
+                    })
+                    .fail(function() {
+                        console.error('Failed to load friend requests');
+                    });
+            }
+
+            function showFriendRequestsModal() {
+                $.get('/api/Friend/requests')
+                    .done(function(requests) {
+                        const modal = $('#friendRequestsModal');
+                        const list = $('#friendRequestsList');
+                        list.empty();
+
+                        if (requests.length === 0) {
+                            list.html('<p class="text-gray-400 text-sm p-4 text-center">No friend requests</p>');
+                        } else {
+                            requests.forEach(function(request) {
+                                const item = createFriendRequestElement(request);
+                                list.append(item);
+                            });
+                        }
+
+                        modal.removeClass('hidden');
+                    })
+                    .fail(function() {
+                        alert('Failed to load friend requests');
+                    });
+            }
+
+            function createFriendRequestElement(request) {
+                const div = $('<div>').addClass('flex items-center justify-between p-3 border-b border-gray-700');
+                
+                const userInfo = $('<div>').addClass('flex items-center');
+                const avatar = $('<div>').addClass('w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3 overflow-hidden');
+                
+                if (request.requester.avatar) {
+                    avatar.html(`<img src="${request.requester.avatar}" alt="${request.requester.displayName}" class="w-10 h-10 rounded-full">`);
+                } else {
+                    avatar.html(`<span class="text-sm font-semibold text-white">${request.requester.displayName.charAt(0).toUpperCase()}</span>`);
+                }
+                
+                const info = $('<div>');
+                const name = $('<p>').addClass('text-white font-medium').text(request.requester.displayName);
+                const date = $('<p>').addClass('text-gray-400 text-xs').text(new Date(request.createdAt).toLocaleDateString());
+                info.append(name).append(date);
+                
+                userInfo.append(avatar).append(info);
+                
+                const actions = $('<div>').addClass('flex space-x-2');
+                const acceptBtn = $('<button>')
+                    .addClass('bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm')
+                    .text('Accept')
+                    .click(function() {
+                        acceptFriendRequest(request.friendshipId);
+                    });
+                
+                const rejectBtn = $('<button>')
+                    .addClass('bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm')
+                    .text('Reject')
+                    .click(function() {
+                        rejectFriendRequest(request.friendshipId);
+                    });
+                
+                actions.append(acceptBtn).append(rejectBtn);
+                div.append(userInfo).append(actions);
+                
+                return div;
+            }
+
+            function acceptFriendRequest(friendshipId) {
+                $.post('/api/Friend/accept', { friendshipId: friendshipId })
+                    .done(function() {
+                        alert('Friend request accepted!');
+                        loadFriends();
+                        loadFriendRequests();
+                        $('#friendRequestsModal').addClass('hidden');
+                    })
+                    .fail(function(xhr) {
+                        const error = xhr.responseJSON?.message || 'Failed to accept friend request';
+                        alert(error);
+                    });
+            }
+
+            function rejectFriendRequest(friendshipId) {
+                $.post('/api/Friend/reject', { friendshipId: friendshipId })
+                    .done(function() {
+                        loadFriendRequests();
+                        showFriendRequestsModal();
+                    })
+                    .fail(function(xhr) {
+                        const error = xhr.responseJSON?.message || 'Failed to reject friend request';
+                        alert(error);
+                    });
+            }
+
+            // Close friend requests modal
+            $('#closeFriendRequestsModal').click(function() {
+                $('#friendRequestsModal').addClass('hidden');
             });
         </script>
+
+        <!-- Friend Requests Modal -->
+        <div id="friendRequestsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-white">Friend Requests</h3>
+                    <button id="closeFriendRequestsModal" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="friendRequestsList" class="space-y-2">
+                    <!-- Friend requests will be populated here -->
+                </div>
+            </div>
+        </div>
     }
 }

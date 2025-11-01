@@ -18,6 +18,10 @@ namespace OkeanChat.Models
 
         // Navigation properties
         public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
+        public virtual ICollection<Friendship> SentFriendRequests { get; set; } = new List<Friendship>();
+        public virtual ICollection<Friendship> ReceivedFriendRequests { get; set; } = new List<Friendship>();
+        public virtual ICollection<PrivateMessage> SentPrivateMessages { get; set; } = new List<PrivateMessage>();
+        public virtual ICollection<PrivateMessage> ReceivedPrivateMessages { get; set; } = new List<PrivateMessage>();
     }
 
     public class Channel
@@ -128,5 +132,70 @@ namespace OkeanChat.Models
         [StringLength(100)]
         [Display(Name = "Display Name")]
         public string? DisplayName { get; set; }
+    }
+
+    // Friendship Models
+    public enum FriendshipStatus
+    {
+        Pending = 0,
+        Accepted = 1,
+        Blocked = 2
+    }
+
+    public class Friendship
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        public string RequesterId { get; set; } = string.Empty;
+
+        [Required]
+        public string AddresseeId { get; set; } = string.Empty;
+
+        public FriendshipStatus Status { get; set; } = FriendshipStatus.Pending;
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public DateTime? UpdatedAt { get; set; }
+
+        // Navigation properties
+        [ForeignKey("RequesterId")]
+        public virtual ApplicationUser Requester { get; set; } = null!;
+
+        [ForeignKey("AddresseeId")]
+        public virtual ApplicationUser Addressee { get; set; } = null!;
+    }
+
+    // Private Message Model
+    public class PrivateMessage
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [Required]
+        [StringLength(2000)]
+        public string Content { get; set; } = string.Empty;
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public DateTime? EditedAt { get; set; }
+
+        public bool IsEdited { get; set; } = false;
+
+        public bool IsRead { get; set; } = false;
+
+        [Required]
+        public string SenderId { get; set; } = string.Empty;
+
+        [Required]
+        public string ReceiverId { get; set; } = string.Empty;
+
+        // Navigation properties
+        [ForeignKey("SenderId")]
+        public virtual ApplicationUser Sender { get; set; } = null!;
+
+        [ForeignKey("ReceiverId")]
+        public virtual ApplicationUser Receiver { get; set; } = null!;
     }
 }

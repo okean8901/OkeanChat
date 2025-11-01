@@ -40,6 +40,38 @@
             </div>
         </div>
 
+        <!-- Friends Section -->
+        <div class="p-4 border-t border-gray-700">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Friends</h2>
+                <button id="addFriendBtn" class="text-gray-400 hover:text-white" title="Add Friend">
+                    <i class="fas fa-user-plus"></i>
+                </button>
+            </div>
+            
+            <!-- Search Friends -->
+            <div class="mb-3">
+                <input type="text" id="searchFriendInput" 
+                       class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm placeholder-gray-400 focus:outline-none focus:border-blue-500" 
+                       placeholder="Search username...">
+            </div>
+            
+            <div id="searchResults" class="mb-3 hidden space-y-1"></div>
+            
+            <!-- Friend Requests Badge -->
+            <div id="friendRequestsBadge" class="mb-3 hidden">
+                <button id="friendRequestsBtn" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm flex items-center justify-between">
+                    <span>Friend Requests</span>
+                    <span id="friendRequestsCount" class="bg-white text-yellow-600 rounded-full px-2 py-1 text-xs font-bold">0</span>
+                </button>
+            </div>
+            
+            <!-- Friends List -->
+            <div id="friendsList" class="space-y-1 max-h-48 overflow-y-auto">
+                <!-- Friends will be populated here -->
+            </div>
+        </div>
+
         <!-- Online Users -->
         <div class="p-4 border-t border-gray-700">
             <div class="flex items-center justify-between mb-4">
@@ -189,6 +221,11 @@
         let connection;
         let currentChannelId = @ViewBag.CurrentChannel.Id;
         let typingTimer;
+        let currentUserId = '@((await UserManager.GetUserAsync(User))?.Id ?? "")';
+        
+        // Get friendId from URL if exists
+        const urlParams = new URLSearchParams(window.location.search);
+        const friendIdFromUrl = urlParams.get('friendId');
 
         $(document).ready(function() {
             initializeSignalR();
@@ -249,6 +286,8 @@
             connection.start().then(function() {
                 console.log("SignalR Connected");
                 connection.invoke("JoinChannel", currentChannelId);
+                // Request online users list
+                connection.invoke("GetOnlineUsers", currentChannelId);
             }).catch(function(err) {
                 console.error("SignalR Connection Error: " + err.toString());
             });
@@ -276,6 +315,79 @@
             // User left
             connection.on("UserLeft", function(username) {
                 console.log(username + " left the channel");
+            });
+
+            // Online users list
+            connection.on("OnlineUsers", function(users) {
+                updateOnlineUsersList(users);
+            });
+
+            // User came online
+            connection.on("UserCameOnline", function(user) {
+                addOnlineUser(user);
+            });
+
+            // User went offline
+            connection.on("UserWentOffline", function(userId) {
+                removeOnlineUser(userId);
+            });
+
+            // Private message handlers
+            connection.on("ReceivePrivateMessage", function(message) {
+                if (currentPrivateChatFriendId && 
+                    (message.senderId === currentPrivateChatFriendId || message.receiverId === currentPrivateChatFriendId)) {
+                    addPrivateMessageToUI(message);
+                }
+            });
+
+            connection.on("PrivateMessages", function(messages) {
+                const messagesList = $('#privateChatMessagesList');
+                messagesList.empty();
+                messages.forEach(function(msg) {
+                    addPrivateMessageToUI(msg);
+                });
+            });
+
+            connection.on("UserTypingPrivate", function(senderInfo) {
+                if (currentPrivateChatFriendId === senderInfo.userId) {
+                    $('#privateChatTypingIndicator').removeClass('hidden').text(senderInfo.userName + ' is typing...');
+                }
+            });
+
+            connection.on("UserStoppedTypingPrivate", function(senderInfo) {
+                if (currentPrivateChatFriendId === senderInfo.userId) {
+                    $('#privateChatTypingIndicator').addClass('hidden');
+                }
+            });
+
+            connection.on("Error", function(message) {
+                alert(message);
+            });
+
+            // Private chat typing indicator
+            let privateChatTypingTimer;
+            $('#privateChatMessageInput').on('input', function() {
+                if (connection && connection.state === signalR.HubConnectionState.Connected && currentPrivateChatFriendId) {
+                    connection.invoke("StartTypingPrivate", currentPrivateChatFriendId);
+                    
+                    clearTimeout(privateChatTypingTimer);
+                    privateChatTypingTimer = setTimeout(() => {
+                        connection.invoke("StopTypingPrivate", currentPrivateChatFriendId);
+                    }, 1000);
+                }
+            });
+
+            // Send private message on Enter
+            $('#privateChatMessageInput').keypress(function(e) {
+                if (e.which === 13) {
+                    sendPrivateMessage();
+                }
+            });
+
+            $('#sendPrivateMessageBtn').click(sendPrivateMessage);
+            $('#closePrivateChatBtn').click(closePrivateChat);
+            $('#closeFriendRequestsModal').click(function() {
+                $('#friendRequestsModal').addClass('hidden');
             });
         }
 
@@ -345,10 +457,93 @@
 
         // Refresh online users
         $('#refreshUsersBtn').click(function() {
-            if (window.webrtcManager) {
-                window.webrtcManager.getOnlineUsers();
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke("GetOnlineUsers", currentChannelId);
             }
         });
+
+        function updateOnlineUsersList(users) {
+            const onlineUsersList = document.getElementById('onlineUsersList');
+            if (!onlineUsersList) return;
+
+            onlineUsersList.innerHTML = '';
+            
+            if (users && users.length > 0) {
+                users.forEach(function(user) {
+                    // Skip current user
+                    const userId = user.id || user.Id;
+                    if (userId === currentUserId) return;
+                    
+                    const userElement = createOnlineUserElement(user);
+                    onlineUsersList.appendChild(userElement);
+                });
+            }
+        }
+
+        function addOnlineUser(user) {
+            const onlineUsersList = document.getElementById('onlineUsersList');
+            if (!onlineUsersList) return;
+
+            // Check if user already exists - handle both camelCase and PascalCase
+            const userId = user.id || user.Id;
+            
+            // Skip current user
+            if (userId === currentUserId) return;
+            
+            const existingUser = document.querySelector(`[data-user-id="${userId}"]`);
+            if (existingUser) return;
+
+            const userElement = createOnlineUserElement(user);
+            onlineUsersList.appendChild(userElement);
+        }
+
+        function removeOnlineUser(userId) {
+            const userElement = document.querySelector(`[data-user-id="${userId}"]`);
+            if (userElement) {
+                userElement.remove();
+            }
+        }
+
+        function createOnlineUserElement(user) {
+            const userDiv = document.createElement('div');
+            
+            // Handle both camelCase and PascalCase property names
+            const userId = user.id || user.Id;
+            const displayName = (user.displayName || user.DisplayName) || (user.userName || user.UserName);
+            const avatar = user.avatar || user.Avatar;
+            
+            userDiv.className = 'flex items-center justify-between p-2 hover:bg-gray-700 rounded';
+            userDiv.setAttribute('data-user-id', userId);
+            
+            const avatarUrl = avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=7289da&color=ffffff&size=32`;
+            
+            userDiv.innerHTML = `
+                <div class="flex items-center">
+                    <div class="relative w-8 h-8 mr-3">
+                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden">
+                            ${avatar ? 
+                                `<img src="${avatar}" alt="${displayName}" class="w-8 h-8 rounded-full">` :
+                                `<span class="text-sm font-semibold text-white">${displayName.charAt(0).toUpperCase()}</span>`
+                            }
+                        </div>
+                        <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800"></div>
+                    </div>
+                    <span class="text-white text-sm">${displayName}</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button class="call-btn bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs" 
+                            data-user-id="${userId}" data-call-type="audio">
+                        <i class="fas fa-phone"></i>
+                    </button>
+                    <button class="call-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs" 
+                            data-user-id="${userId}" data-call-type="video">
+                        <i class="fas fa-video"></i>
+                    </button>
+                </div>
+            `;
+            
+            return userDiv;
+        }
 
         // Function to update navigation avatar
         function updateNavigationAvatar(avatarUrl) {
@@ -365,7 +560,534 @@
                 updateNavigationAvatar(avatarData.avatarUrl);
             }
         });
+
+        // Friend Functions
+        let currentPrivateChatFriendId = null;
+        let friendSearchTimer = null;
+
+        // Load friends list on page load
+        $(document).ready(function() {
+            loadFriends();
+            loadFriendRequests();
+            
+            // If friendId is in URL, open private chat after a short delay
+            if (friendIdFromUrl && currentUserId) {
+                setTimeout(function() {
+                    // Get friend info from friends list
+                    $.get('/api/Friend/list')
+                        .done(function(friendships) {
+                            const friendship = friendships.find(f => f.friend.id === friendIdFromUrl);
+                            if (friendship) {
+                                openPrivateChat(
+                                    friendship.friend.id,
+                                    friendship.friend.displayName,
+                                    friendship.friend.avatar
+                                );
+                            }
+                        });
+                }, 500);
+            }
+
+            // Search friends
+            $('#searchFriendInput').on('input', function() {
+                const query = $(this).val().trim();
+                if (query.length < 3) {
+                    $('#searchResults').addClass('hidden').empty();
+                    return;
+                }
+
+                clearTimeout(friendSearchTimer);
+                friendSearchTimer = setTimeout(() => {
+                    searchUsers(query);
+                }, 500);
+            });
+
+            // Add friend button
+            $('#addFriendBtn').click(function() {
+                $('#searchFriendInput').focus();
+            });
+
+            // Friend requests button
+            $('#friendRequestsBtn').click(function() {
+                showFriendRequestsModal();
+            });
+        });
+
+        function searchUsers(username) {
+            $.get('/api/Friend/search', { username: username })
+                .done(function(users) {
+                    const searchResults = $('#searchResults');
+                    searchResults.removeClass('hidden').empty();
+
+                    if (users.length === 0) {
+                        searchResults.html('<p class="text-gray-400 text-sm p-2">No users found</p>');
+                        return;
+                    }
+
+                    users.forEach(function(user) {
+                        const userElement = createSearchUserElement(user);
+                        searchResults.append(userElement);
+                    });
+                })
+                .fail(function() {
+                    console.error('Failed to search users');
+                });
+        }
+
+        function createSearchUserElement(user) {
+            const div = $('<div>')
+                .addClass('flex items-center justify-between p-2 bg-gray-700 rounded')
+                .attr('data-user-id', user.id);
+            
+            const userInfo = $('<div>').addClass('flex items-center');
+            const avatar = $('<div>').addClass('w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3 overflow-hidden');
+            
+            if (user.avatar) {
+                avatar.html(`<img src="${user.avatar}" alt="${user.displayName}" class="w-8 h-8 rounded-full">`);
+            } else {
+                avatar.html(`<span class="text-sm font-semibold text-white">${user.displayName.charAt(0).toUpperCase()}</span>`);
+            }
+            
+            const name = $('<span>').addClass('text-white text-sm').text(user.displayName);
+            userInfo.append(avatar).append(name);
+            
+            // Check friendship status
+            const friendshipStatus = user.friendshipStatus;
+            let actionBtn;
+            
+            if (friendshipStatus && friendshipStatus.status === 'Pending') {
+                if (friendshipStatus.isRequester) {
+                    // User sent request, show Cancel button
+                    actionBtn = $('<button>')
+                        .addClass('bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs')
+                        .html('<i class="fas fa-times"></i> Cancel')
+                        .click(function() {
+                            cancelFriendRequest(user.id);
+                        });
+                } else {
+                    // User received request, show Accept/Reject
+                    actionBtn = $('<span>')
+                        .addClass('text-yellow-400 text-xs')
+                        .text('Pending');
+                }
+            } else if (friendshipStatus && friendshipStatus.status === 'Accepted') {
+                // Already friends
+                actionBtn = $('<span>')
+                    .addClass('text-green-400 text-xs')
+                    .text('Friends');
+            } else {
+                // No request, show Add button
+                actionBtn = $('<button>')
+                    .addClass('bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs')
+                    .html('<i class="fas fa-user-plus"></i> Add')
+                    .click(function() {
+                        sendFriendRequest(user.id);
+                    });
+            }
+            
+            div.append(userInfo).append(actionBtn);
+            return div;
+        }
+
+        function sendFriendRequest(userId) {
+            $.post('/api/Friend/request', { userId: userId })
+                .done(function(response) {
+                    // Update the button to Cancel
+                    updateSearchUserButton(userId, 'sent');
+                })
+                .fail(function(xhr) {
+                    const error = xhr.responseJSON?.message || 'Failed to send friend request';
+                    alert(error);
+                });
+        }
+
+        function cancelFriendRequest(userId) {
+            $.post('/api/Friend/cancel', { userId: userId })
+                .done(function(response) {
+                    // Update the button back to Add
+                    updateSearchUserButton(userId, 'none');
+                })
+                .fail(function(xhr) {
+                    const error = xhr.responseJSON?.message || 'Failed to cancel friend request';
+                    alert(error);
+                });
+        }
+
+        function updateSearchUserButton(userId, status) {
+            const userDiv = $(`#searchResults [data-user-id="${userId}"]`);
+            if (userDiv.length === 0) return;
+
+            const actionBtn = userDiv.find('button, span').last();
+            const isButton = actionBtn.is('button');
+            
+            if (status === 'sent') {
+                // Change to Cancel button
+                if (!isButton) {
+                    // Replace span with button
+                    const newBtn = $('<button>')
+                        .addClass('bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs')
+                        .html('<i class="fas fa-times"></i> Cancel')
+                        .click(function() {
+                            cancelFriendRequest(userId);
+                        });
+                    actionBtn.replaceWith(newBtn);
+                } else {
+                    actionBtn.removeClass('bg-green-600 hover:bg-green-700')
+                            .addClass('bg-red-600 hover:bg-red-700')
+                            .html('<i class="fas fa-times"></i> Cancel')
+                            .off('click')
+                            .click(function() {
+                                cancelFriendRequest(userId);
+                            });
+                }
+            } else if (status === 'none') {
+                // Change back to Add button
+                if (!isButton) {
+                    // Replace span with button
+                    const newBtn = $('<button>')
+                        .addClass('bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs')
+                        .html('<i class="fas fa-user-plus"></i> Add')
+                        .click(function() {
+                            sendFriendRequest(userId);
+                        });
+                    actionBtn.replaceWith(newBtn);
+                } else {
+                    actionBtn.removeClass('bg-red-600 hover:bg-red-700')
+                            .addClass('bg-green-600 hover:bg-green-700')
+                            .html('<i class="fas fa-user-plus"></i> Add')
+                            .off('click')
+                            .click(function() {
+                                sendFriendRequest(userId);
+                            });
+                }
+            }
+        }
+
+        function loadFriends() {
+            $.get('/api/Friend/list')
+                .done(function(friendships) {
+                    const friendsList = $('#friendsList');
+                    friendsList.empty();
+
+                    if (friendships.length === 0) {
+                        friendsList.html('<p class="text-gray-400 text-sm p-2">No friends yet</p>');
+                        return;
+                    }
+
+                    friendships.forEach(function(friendship) {
+                        const friendElement = createFriendElement(friendship.friend, friendship.friendshipId);
+                        friendsList.append(friendElement);
+                    });
+                })
+                .fail(function() {
+                    console.error('Failed to load friends');
+                });
+        }
+
+        function createFriendElement(friend, friendshipId) {
+            const div = $('<div>')
+                .addClass('flex items-center justify-between p-2 hover:bg-gray-700 rounded cursor-pointer friend-item')
+                .attr('data-friend-id', friend.id)
+                .attr('data-friendship-id', friendshipId);
+            
+            const userInfo = $('<div>').addClass('flex items-center flex-1');
+            const avatar = $('<div>').addClass('relative w-8 h-8 mr-3');
+            
+            const avatarImg = $('<div>').addClass('w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden');
+            if (friend.avatar) {
+                avatarImg.html(`<img src="${friend.avatar}" alt="${friend.displayName}" class="w-8 h-8 rounded-full">`);
+            } else {
+                avatarImg.html(`<span class="text-sm font-semibold text-white">${friend.displayName.charAt(0).toUpperCase()}</span>`);
+            }
+            
+            const onlineDot = $('<div>').addClass('absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800');
+            avatar.append(avatarImg).append(onlineDot);
+            
+            const name = $('<span>').addClass('text-white text-sm').text(friend.displayName);
+            userInfo.append(avatar).append(name);
+            
+            const actions = $('<div>').addClass('flex space-x-1');
+            const chatBtn = $('<button>')
+                .addClass('bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs')
+                .html('<i class="fas fa-comment"></i>')
+                .click(function(e) {
+                    e.stopPropagation();
+                    openPrivateChat(friend.id, friend.displayName, friend.avatar);
+                });
+            
+            const audioBtn = $('<button>')
+                .addClass('bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs')
+                .html('<i class="fas fa-phone"></i>')
+                .click(function(e) {
+                    e.stopPropagation();
+                    if (window.webrtcManager) {
+                        window.webrtcManager.startCall(friend.id, 'audio');
+                    }
+                });
+            
+            const videoBtn = $('<button>')
+                .addClass('bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs')
+                .html('<i class="fas fa-video"></i>')
+                .click(function(e) {
+                    e.stopPropagation();
+                    if (window.webrtcManager) {
+                        window.webrtcManager.startCall(friend.id, 'video');
+                    }
+                });
+            
+            actions.append(chatBtn).append(audioBtn).append(videoBtn);
+            div.append(userInfo).append(actions);
+            
+            // Click to open private chat
+            div.click(function() {
+                openPrivateChat(friend.id, friend.displayName, friend.avatar);
+            });
+            
+            return div;
+        }
+
+        function loadFriendRequests() {
+            $.get('/api/Friend/requests')
+                .done(function(requests) {
+                    if (requests.length > 0) {
+                        $('#friendRequestsCount').text(requests.length);
+                        $('#friendRequestsBadge').removeClass('hidden');
+                    } else {
+                        $('#friendRequestsBadge').addClass('hidden');
+                    }
+                })
+                .fail(function() {
+                    console.error('Failed to load friend requests');
+                });
+        }
+
+        function showFriendRequestsModal() {
+            $.get('/api/Friend/requests')
+                .done(function(requests) {
+                    const modal = $('#friendRequestsModal');
+                    const list = $('#friendRequestsList');
+                    list.empty();
+
+                    if (requests.length === 0) {
+                        list.html('<p class="text-gray-400 text-sm p-4 text-center">No friend requests</p>');
+                    } else {
+                        requests.forEach(function(request) {
+                            const item = createFriendRequestElement(request);
+                            list.append(item);
+                        });
+                    }
+
+                    modal.removeClass('hidden');
+                })
+                .fail(function() {
+                    alert('Failed to load friend requests');
+                });
+        }
+
+        function createFriendRequestElement(request) {
+            const div = $('<div>').addClass('flex items-center justify-between p-3 border-b border-gray-700');
+            
+            const userInfo = $('<div>').addClass('flex items-center');
+            const avatar = $('<div>').addClass('w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3 overflow-hidden');
+            
+            if (request.requester.avatar) {
+                avatar.html(`<img src="${request.requester.avatar}" alt="${request.requester.displayName}" class="w-10 h-10 rounded-full">`);
+            } else {
+                avatar.html(`<span class="text-sm font-semibold text-white">${request.requester.displayName.charAt(0).toUpperCase()}</span>`);
+            }
+            
+            const info = $('<div>');
+            const name = $('<p>').addClass('text-white font-medium').text(request.requester.displayName);
+            const date = $('<p>').addClass('text-gray-400 text-xs').text(new Date(request.createdAt).toLocaleDateString());
+            info.append(name).append(date);
+            
+            userInfo.append(avatar).append(info);
+            
+            const actions = $('<div>').addClass('flex space-x-2');
+            const acceptBtn = $('<button>')
+                .addClass('bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm')
+                .text('Accept')
+                .click(function() {
+                    acceptFriendRequest(request.friendshipId);
+                });
+            
+            const rejectBtn = $('<button>')
+                .addClass('bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm')
+                .text('Reject')
+                .click(function() {
+                    rejectFriendRequest(request.friendshipId);
+                });
+            
+            actions.append(acceptBtn).append(rejectBtn);
+            div.append(userInfo).append(actions);
+            
+            return div;
+        }
+
+        function acceptFriendRequest(friendshipId) {
+            $.post('/api/Friend/accept', { friendshipId: friendshipId })
+                .done(function() {
+                    alert('Friend request accepted!');
+                    loadFriends();
+                    loadFriendRequests();
+                    $('#friendRequestsModal').addClass('hidden');
+                })
+                .fail(function(xhr) {
+                    const error = xhr.responseJSON?.message || 'Failed to accept friend request';
+                    alert(error);
+                });
+        }
+
+        function rejectFriendRequest(friendshipId) {
+            $.post('/api/Friend/reject', { friendshipId: friendshipId })
+                .done(function() {
+                    loadFriendRequests();
+                    showFriendRequestsModal();
+                })
+                .fail(function(xhr) {
+                    const error = xhr.responseJSON?.message || 'Failed to reject friend request';
+                    alert(error);
+                });
+        }
+
+        // Private Chat Functions
+        function openPrivateChat(friendId, friendName, friendAvatar) {
+            currentPrivateChatFriendId = friendId;
+            
+            // Show private chat interface
+            $('#privateChatInterface').removeClass('hidden');
+            $('#privateChatFriendName').text(friendName);
+            
+            if (friendAvatar) {
+                $('#privateChatFriendAvatar').html(`<img src="${friendAvatar}" alt="${friendName}" class="w-10 h-10 rounded-full">`);
+            } else {
+                $('#privateChatFriendAvatar').html(`<span class="text-lg font-semibold text-white">${friendName.charAt(0).toUpperCase()}</span>`);
+            }
+            
+            // Set user ID for call buttons
+            $('#privateChatAudioBtn').attr('data-user-id', friendId);
+            $('#privateChatVideoBtn').attr('data-user-id', friendId);
+            
+            // Load messages
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke("GetPrivateMessages", friendId);
+            }
+            
+            // Hide main chat
+            $('#messagesContainer').parent().hide();
+            $('#messageInput').parent().hide();
+        }
+
+        function closePrivateChat() {
+            currentPrivateChatFriendId = null;
+            $('#privateChatInterface').addClass('hidden');
+            $('#privateChatMessagesList').empty();
+            $('#privateChatMessageInput').val('');
+            
+            // Show main chat
+            $('#messagesContainer').parent().show();
+            $('#messageInput').parent().show();
+        }
+
+        function sendPrivateMessage() {
+            const message = $('#privateChatMessageInput').val().trim();
+            if (!message || !currentPrivateChatFriendId) return;
+
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke("SendPrivateMessage", message, currentPrivateChatFriendId);
+                $('#privateChatMessageInput').val('');
+            }
+        }
+
+        function addPrivateMessageToUI(message) {
+            const messagesList = $('#privateChatMessagesList');
+            const isFromCurrentUser = message.senderId === currentUserId;
+            
+            const messageDiv = $('<div>').addClass(`flex mb-4 ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`);
+            
+            const messageContent = $('<div>').addClass(`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                isFromCurrentUser ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-200'
+            }`);
+            
+            messageContent.html(`
+                <p class="text-sm">${message.content}</p>
+                <p class="text-xs mt-1 opacity-75">${new Date(message.createdAt).toLocaleTimeString()}</p>
+            `);
+            
+            messageDiv.append(messageContent);
+            messagesList.append(messageDiv);
+            
+            // Scroll to bottom
+            const container = $('#privateChatMessagesContainer');
+            container.scrollTop(container[0].scrollHeight);
+        }
     </script>
+
+    <!-- Friend Requests Modal -->
+    <div id="friendRequestsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-white">Friend Requests</h3>
+                <button id="closeFriendRequestsModal" class="text-gray-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="friendRequestsList" class="space-y-2">
+                <!-- Friend requests will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Private Chat Interface -->
+    <div id="privateChatInterface" class="fixed inset-0 bg-gray-900 flex flex-col z-40 hidden">
+        <!-- Private Chat Header -->
+        <div class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center">
+                <button id="closePrivateChatBtn" class="mr-4 text-gray-400 hover:text-white">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div id="privateChatFriendAvatar" class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3 overflow-hidden"></div>
+                <div>
+                    <h3 id="privateChatFriendName" class="text-lg font-semibold text-white"></h3>
+                    <p id="privateChatStatus" class="text-xs text-gray-400">Online</p>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button class="call-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center" 
+                        data-call-type="audio" id="privateChatAudioBtn">
+                    <i class="fas fa-phone mr-2"></i> Call
+                </button>
+                <button class="call-btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center" 
+                        data-call-type="video" id="privateChatVideoBtn">
+                    <i class="fas fa-video mr-2"></i> Video
+                </button>
+            </div>
+        </div>
+
+        <!-- Private Chat Messages -->
+        <div id="privateChatMessagesContainer" class="flex-1 overflow-y-auto p-6">
+            <div id="privateChatMessagesList" class="space-y-4">
+                <!-- Private messages will be populated here -->
+            </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div id="privateChatTypingIndicator" class="px-6 py-2 text-sm text-gray-400 hidden"></div>
+
+        <!-- Private Chat Input -->
+        <div class="bg-gray-800 border-t border-gray-700 p-6">
+            <div class="flex items-center">
+                <div class="flex-1 relative">
+                    <input type="text" id="privateChatMessageInput" 
+                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500" 
+                           placeholder="Type a message...">
+                    <button id="sendPrivateMessageBtn" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Incoming Call Modal -->
     <div id="incomingCallModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
