@@ -1,0 +1,124 @@
+@{
+    ViewData["Title"] = "OkeanChat";
+    Layout = "_Layout";
+}
+
+<!-- Landing page — dark blue/black theme, full-screen -->
+<main class="min-h-screen bg-slate-900 text-white">
+    <!-- Hero -->
+    <section class="min-h-[60vh] flex items-center border-b border-slate-800">
+        <div class="w-full max-w-[1200px] mx-auto px-6 py-16">
+            <div class="max-w-3xl">
+                <div class="flex items-center gap-3 mb-6">
+                    <img src="~/img/logo.jpg" alt="OkeanChat" class="w-10 h-10 rounded-full object-cover" />
+                    <span class="text-sm tracking-wider uppercase text-slate-300">OkeanChat</span>
+                </div>
+                <h1 class="text-4xl md:text-6xl font-semibold leading-tight tracking-tight">
+                    Real-time chat and calls for modern teams
+                </h1>
+                <p class="mt-5 text-base md:text-lg text-slate-300 leading-relaxed max-w-2xl">
+                    Secure, fast and reliable messaging with HD voice & video powered by WebRTC.
+                </p>
+                <div class="mt-8 flex items-center gap-3">
+                    <a href="@Url.Action("Register", "Account")" class="inline-flex items-center px-5 py-2.5 rounded-md bg-blue-600 hover:bg-blue-700">
+                        Get started
+                    </a>
+                    <a href="@Url.Action("Login", "Account")" class="inline-flex items-center px-5 py-2.5 rounded-md border border-slate-700 hover:bg-slate-800">
+                        Sign in
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="border-b border-slate-800">
+        <div class="w-full max-w-[1200px] mx-auto px-6 py-16">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="p-6 rounded-lg bg-slate-800 border border-slate-700">
+                    <h3 class="text-lg font-semibold">Real-time messaging</h3>
+                    <p class="mt-2 text-sm text-slate-300">Fast, reliable chat with read receipts and typing indicators.</p>
+                </div>
+                <div class="p-6 rounded-lg bg-slate-800 border border-slate-700">
+                    <h3 class="text-lg font-semibold">Voice & video calls</h3>
+                    <p class="mt-2 text-sm text-slate-300">Crystal-clear WebRTC calls with presence and notifications.</p>
+                </div>
+                <div class="p-6 rounded-lg bg-slate-800 border border-slate-700">
+                    <h3 class="text-lg font-semibold">Security-first</h3>
+                    <p class="mt-2 text-sm text-slate-300">Modern security practices keep your data safe and private.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing (minimal) -->
+    <section id="pricing" class="border-b border-slate-800">
+        <div class="w-full max-w-[1200px] mx-auto px-6 py-16">
+            <h2 class="text-2xl font-semibold">Simple pricing</h2>
+            <p class="mt-2 text-sm text-slate-300">Start free. Upgrade when you grow.</p>
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="rounded-lg border border-slate-700 bg-slate-800 p-6">
+                    <div class="text-sm text-slate-300">Free</div>
+                    <div class="mt-2 text-3xl font-semibold">$0</div>
+                    <ul class="mt-4 text-sm text-slate-300 space-y-2">
+                        <li>Real-time chat</li>
+                        <li>Basic calls</li>
+                        <li>Community support</li>
+                    </ul>
+                    <a href="@Url.Action("Register", "Account")" class="mt-6 inline-flex items-center px-4 py-2 rounded-md border border-slate-700 hover:bg-slate-900 text-sm">Choose Free</a>
+                </div>
+                <div class="rounded-lg border border-blue-700 bg-slate-800 p-6">
+                    <div class="text-sm text-slate-300">Pro</div>
+                    <div class="mt-2 text-3xl font-semibold">$9</div>
+                    <ul class="mt-4 text-sm text-slate-200 space-y-2">
+                        <li>All Free features</li>
+                        <li>HD video calls</li>
+                        <li>Priority support</li>
+                    </ul>
+                    <a href="@Url.Action("Register", "Account")" class="mt-6 inline-flex items-center px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm">Choose Pro</a>
+                </div>
+                <div class="rounded-lg border border-slate-700 bg-slate-800 p-6">
+                    <div class="text-sm text-slate-300">Enterprise</div>
+                    <div class="mt-2 text-3xl font-semibold">Custom</div>
+                    <ul class="mt-4 text-sm text-slate-300 space-y-2">
+                        <li>Dedicated support</li>
+                        <li>Custom SLAs</li>
+                        <li>Advanced security</li>
+                    </ul>
+                    <a href="#contact" class="mt-6 inline-flex items-center px-4 py-2 rounded-md border border-slate-700 hover:bg-slate-900 text-sm">Contact sales</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section id="contact">
+        <div class="w-full max-w-[1200px] mx-auto px-6 py-16">
+            <div class="max-w-3xl">
+                <h2 class="text-2xl font-semibold">Ready to streamline communication?</h2>
+                <p class="mt-2 text-sm text-slate-300">Create a free account in minutes. No credit card required.</p>
+                <div class="mt-6 flex items-center gap-3">
+                    <a href="@Url.Action("Register", "Account")" class="inline-flex items-center px-5 py-2.5 rounded-md bg-blue-600 hover:bg-blue-700">Get started</a>
+                    <a href="mailto:hello@okean.chat" class="inline-flex items-center px-5 py-2.5 rounded-md border border-slate-700 hover:bg-slate-800">Contact us</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800">
+        <div class="w-full max-w-[1200px] mx-auto px-6 py-10 text-sm text-slate-300">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <img src="~/img/logo.jpg" alt="OkeanChat" class="w-7 h-7 rounded-full object-cover" />
+                    <span>&copy; @DateTime.Now.Year OkeanChat</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <a href="#" class="hover:text-white">Terms</a>
+                    <a href="@Url.Action("Privacy", "Home")" class="hover:text-white">Privacy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+</main>
+

@@ -8,6 +8,36 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     
+    <!-- Tailwind Config (must be before Tailwind CDN) -->
+    <script>
+        tailwind = window.tailwind || {};
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            DEFAULT: '#2b3a67',
+                            50: '#f3f5fa',
+                            100: '#e8ecf5',
+                            200: '#cfd8ea',
+                            300: '#a9b9d8',
+                            400: '#7f95c1',
+                            500: '#5b78aa',
+                            600: '#415f92',
+                            700: '#2f4b7a',
+                            800: '#263d65',
+                            900: '#223050'
+                        }
+                    },
+                    container: {
+                        center: true,
+                        padding: '1rem',
+                        screens: { lg: '1024px', xl: '1200px' }
+                    }
+                }
+            }
+        };
+    </script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -23,10 +53,8 @@
     <!-- WebRTC -->
     <script src="~/js/webrtc.js"></script>
 </head>
-<body class="bg-gray-900 text-white">
-    <div class="container-fluid p-0 h-100">
-        @RenderBody()
-    </div>
+<body class="theme-enterprise bg-slate-900 text-white min-h-screen">
+    @RenderBody()
 
     <!-- Bootstrap JS -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>

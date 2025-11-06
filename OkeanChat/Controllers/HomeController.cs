@@ -17,12 +17,24 @@ namespace OkeanChat.Controllers
 
         public async Task<IActionResult> Index()
         {
+            // If user is not authenticated, show landing page
+            if (!User.Identity?.IsAuthenticated ?? true)
+            {
+                return View("Landing");
+            }
+
+            // If authenticated, show the chat interface
             var channels = await _context.Channels
                 .Where(c => c.IsActive)
                 .OrderBy(c => c.Name)
                 .ToListAsync();
 
             ViewBag.Channels = channels;
+            return View("ChatInterface");
+        }
+
+        public IActionResult Landing()
+        {
             return View();
         }
 
