@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using OkeanChat.Services;
+using OkeanChat.Hubs;
 
 namespace OkeanChat.Hubs
 {
@@ -14,17 +15,19 @@ namespace OkeanChat.Hubs
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly OnlineUserService _onlineUserService;
+        private readonly IHubContext<NotificationHub> _notificationHub;
         private static readonly Dictionary<string, string> _userConnections = new(); // ConnectionId -> UserId
         private static readonly Dictionary<string, string> _connectionToUsername = new(); // ConnectionId -> Username
         private static readonly Dictionary<string, HashSet<string>> _typingUsers = new();
         private static readonly Dictionary<string, HashSet<string>> _connectionGroups = new(); // ConnectionId -> Groups
         private static readonly Dictionary<string, HashSet<string>> _privateChatConnections = new(); // UserId -> Set of friend UserIds they're chatting with
 
-        public ChatHub(ApplicationDbContext context, UserManager<ApplicationUser> userManager, OnlineUserService onlineUserService)
+        public ChatHub(ApplicationDbContext context, UserManager<ApplicationUser> userManager, OnlineUserService onlineUserService, IHubContext<NotificationHub> notificationHub)
         {
             _context = context;
             _userManager = userManager;
             _onlineUserService = onlineUserService;
+            _notificationHub = notificationHub;
         }
 
         public async Task JoinChannel(int channelId)
@@ -508,6 +511,9 @@ namespace OkeanChat.Hubs
                     await Clients.Client(connectionId).SendAsync("ReceivePrivateMessage", messageInfo);
                 }
             }
+
+            // Send notification to receiver via IHubContext (NotificationHub)
+            await NotifyNewPrivateMessage(receiverId, sender, messageInfo);
         }
 
         public async Task GetPrivateMessages(string friendId, int page = 1, int pageSize = 50)
@@ -561,12 +567,59 @@ namespace OkeanChat.Hubs
                            !m.IsRead)
                 .ToListAsync();
 
-            foreach (var msg in unreadMessages)
+            if (unreadMessages.Any())
             {
-                msg.IsRead = true;
-            }
+                foreach (var msg in unreadMessages)
+                {
+                    msg.IsRead = true;
+                }
 
-            await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();
+
+                // Update notification hub with new unread count
+                await UpdateUnreadCountForUser(currentUser.Id);
+            }
+        }
+
+        // Notify receiver about new private message
+        private async Task NotifyNewPrivateMessage(string receiverId, ApplicationUser sender, object messageInfo)
+        {
+            var notificationConnections = NotificationHub.GetUserConnections(receiverId);
+            
+            if (notificationConnections.Any())
+            {
+                // Get unread count
+                var unreadCount = await _context.PrivateMessages
+                    .CountAsync(m => m.ReceiverId == receiverId && !m.IsRead);
+
+                // Send notification
+                foreach (var connectionId in notificationConnections)
+                {
+                    await _notificationHub.Clients.Client(connectionId).SendAsync("NewPrivateMessage", new
+                    {
+                        SenderId = sender.Id,
+                        SenderName = sender.DisplayName ?? sender.UserName,
+                        SenderAvatar = sender.Avatar,
+                        Message = messageInfo,
+                        UnreadCount = unreadCount
+                    });
+                    
+                    await _notificationHub.Clients.Client(connectionId).SendAsync("ReceiveUnreadMessageCount", unreadCount);
+                }
+            }
+        }
+
+        // Update unread count for user
+        private async Task UpdateUnreadCountForUser(string userId)
+        {
+            var unreadCount = await _context.PrivateMessages
+                .CountAsync(m => m.ReceiverId == userId && !m.IsRead);
+
+            var notificationConnections = NotificationHub.GetUserConnections(userId);
+            foreach (var connectionId in notificationConnections)
+            {
+                await _notificationHub.Clients.Client(connectionId).SendAsync("ReceiveUnreadMessageCount", unreadCount);
+            }
         }
 
         public async Task StartTypingPrivate(string receiverId)

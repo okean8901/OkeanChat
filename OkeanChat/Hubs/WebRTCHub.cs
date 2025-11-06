@@ -5,6 +5,7 @@ using OkeanChat.Models;
 using OkeanChat.Services;
 using OkeanChat.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace OkeanChat.Hubs
 {
@@ -143,13 +144,21 @@ namespace OkeanChat.Hubs
             {
                 Id = caller.Id,
                 UserName = caller.UserName,
-                DisplayName = caller.DisplayName ?? caller.UserName
+                DisplayName = caller.DisplayName ?? caller.UserName,
+                Avatar = caller.Avatar
             };
 
             var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
-            foreach (var connectionId in targetConnections)
+            if (targetConnections.Any())
             {
-                await Clients.Client(connectionId).SendAsync("ReceiveOffer", callerInfo, offer);
+                foreach (var connectionId in targetConnections)
+                {
+                    await Clients.Client(connectionId).SendAsync("ReceiveOffer", callerInfo, offer);
+                }
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("CallError", "User is not connected");
             }
         }
 
@@ -173,13 +182,17 @@ namespace OkeanChat.Hubs
             {
                 Id = caller.Id,
                 UserName = caller.UserName,
-                DisplayName = caller.DisplayName ?? caller.UserName
+                DisplayName = caller.DisplayName ?? caller.UserName,
+                Avatar = caller.Avatar
             };
 
             var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
-            foreach (var connectionId in targetConnections)
+            if (targetConnections.Any())
             {
-                await Clients.Client(connectionId).SendAsync("ReceiveAnswer", callerInfo, answer);
+                foreach (var connectionId in targetConnections)
+                {
+                    await Clients.Client(connectionId).SendAsync("ReceiveAnswer", callerInfo, answer);
+                }
             }
         }
 
@@ -202,13 +215,17 @@ namespace OkeanChat.Hubs
             {
                 Id = caller.Id,
                 UserName = caller.UserName,
-                DisplayName = caller.DisplayName ?? caller.UserName
+                DisplayName = caller.DisplayName ?? caller.UserName,
+                Avatar = caller.Avatar
             };
 
             var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
-            foreach (var connectionId in targetConnections)
+            if (targetConnections.Any())
             {
-                await Clients.Client(connectionId).SendAsync("ReceiveIceCandidate", callerInfo, candidate);
+                foreach (var connectionId in targetConnections)
+                {
+                    await Clients.Client(connectionId).SendAsync("ReceiveIceCandidate", callerInfo, candidate);
+                }
             }
         }
 
@@ -278,30 +295,40 @@ namespace OkeanChat.Hubs
             if (caller == null) return;
 
             // Remove call from active calls
+            bool removed = false;
             if (_activeCalls.ContainsKey(caller.Id) && _activeCalls[caller.Id] == targetUserId)
             {
                 _activeCalls.Remove(caller.Id);
+                removed = true;
             }
             else if (_activeCalls.ContainsKey(targetUserId) && _activeCalls[targetUserId] == caller.Id)
             {
                 _activeCalls.Remove(targetUserId);
+                removed = true;
             }
 
-            var callerInfo = new
+            if (removed)
             {
-                Id = caller.Id,
-                UserName = caller.UserName,
-                DisplayName = caller.DisplayName ?? caller.UserName
-            };
+                var callerInfo = new
+                {
+                    Id = caller.Id,
+                    UserName = caller.UserName,
+                    DisplayName = caller.DisplayName ?? caller.UserName,
+                    Avatar = caller.Avatar
+                };
 
-            // Notify target that call ended
-            var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
-            foreach (var connectionId in targetConnections)
-            {
-                await Clients.Client(connectionId).SendAsync("CallEnded", callerInfo);
+                // Notify target that call ended
+                var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
+                if (targetConnections.Any())
+                {
+                    foreach (var connectionId in targetConnections)
+                    {
+                        await Clients.Client(connectionId).SendAsync("CallEnded", callerInfo);
+                    }
+                }
+
+                await Clients.Caller.SendAsync("CallEnded", callerInfo);
             }
-
-            await Clients.Caller.SendAsync("CallEnded", callerInfo);
         }
 
         // Lấy danh sách user online

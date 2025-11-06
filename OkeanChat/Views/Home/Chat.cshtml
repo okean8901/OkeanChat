@@ -361,16 +361,106 @@
 @section Scripts {
     <script>
         let connection;
+        let notificationConnection;
         let currentChannelId = @ViewBag.CurrentChannel.Id;
         let typingTimer;
         let currentUserId = '@((await UserManager.GetUserAsync(User))?.Id ?? "")';
+        let privateChatCurrentPage = 1;
+        let privateChatHasMore = true;
+        let privateChatLoading = false;
         
         // Get friendId from URL if exists
         const urlParams = new URLSearchParams(window.location.search);
         const friendIdFromUrl = urlParams.get('friendId');
 
+        // Request browser notification permission
+        function requestNotificationPermission() {
+            if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
+        }
+
+        // Show browser notification
+        function showBrowserNotification(title, body, icon, data) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                const notification = new Notification(title, {
+                    body: body,
+                    icon: icon || '/img/logo.jpg',
+                    badge: '/img/logo.jpg',
+                    tag: data?.senderId || 'message',
+                    data: data
+                });
+
+                notification.onclick = function() {
+                    window.focus();
+                    if (data?.senderId) {
+                        window.location.href = '/Home/Chat?channelId=1&friendId=' + data.senderId;
+                    }
+                    notification.close();
+                };
+
+                setTimeout(() => notification.close(), 5000);
+            }
+        }
+
+        // Initialize Notification Hub
+        function initializeNotificationHub() {
+            notificationConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/notificationHub")
+                .withAutomaticReconnect()
+                .build();
+
+            notificationConnection.start().then(function() {
+                console.log("[Chat] NotificationHub Connected");
+                requestNotificationPermission();
+            }).catch(function(err) {
+                console.error("[Chat] NotificationHub Connection Error: " + err.toString());
+            });
+
+            // Listen for unread message count
+            notificationConnection.on("ReceiveUnreadMessageCount", function(count) {
+                console.log("[Chat] Unread count:", count);
+                updateUnreadBadge(count);
+            });
+
+            // Listen for new private message
+            notificationConnection.on("NewPrivateMessage", function(data) {
+                console.log("[Chat] NewPrivateMessage:", data);
+                
+                // If not in private chat or different friend, show notification
+                if (!currentPrivateChatFriendId || currentPrivateChatFriendId !== data.senderId) {
+                    showBrowserNotification(
+                        data.senderName,
+                        data.message.content,
+                        data.senderAvatar || '/img/logo.jpg',
+                        { senderId: data.senderId }
+                    );
+                }
+                
+                updateUnreadBadge(data.unreadCount);
+            });
+        }
+
+        // Update unread badge
+        function updateUnreadBadge(count) {
+            if (count > 0) {
+                document.title = `(${count}) OkeanChat`;
+            } else {
+                document.title = 'OkeanChat';
+            }
+        }
+
         $(document).ready(function() {
             initializeSignalR();
+            if (currentUserId) {
+                initializeNotificationHub();
+                
+                // Load initial unread count
+                $.get('/api/Friend/unread-count')
+                    .done(function(data) {
+                        updateUnreadBadge(data.unreadCount);
+                    });
+            }
             
             // Close sidebar when clicking links on mobile (using global functions)
             $('#sidebar a').on('click', function() {
@@ -386,6 +476,30 @@
                     sendMessage();
                 }
             });
+
+            // Private chat send button and Enter key
+            $('#sendPrivateMessageBtn').click(sendPrivateMessage);
+            $('#privateChatMessageInput').keypress(function(e) {
+                if (e.which === 13) {
+                    sendPrivateMessage();
+                }
+            });
+
+            // Private chat typing indicator
+            let privateTypingTimer;
+            $('#privateChatMessageInput').on('input', function() {
+                if (connection && connection.state === signalR.HubConnectionState.Connected && currentPrivateChatFriendId) {
+                    connection.invoke("StartTypingPrivate", currentPrivateChatFriendId);
+                    
+                    clearTimeout(privateTypingTimer);
+                    privateTypingTimer = setTimeout(() => {
+                        connection.invoke("StopTypingPrivate", currentPrivateChatFriendId);
+                    }, 1000);
+                }
+            });
+
+            // Close private chat button
+            $('#closePrivateChatBtn').click(closePrivateChat);
 
             // Typing indicator
             $('#messageInput').on('input', function() {
@@ -516,10 +630,43 @@
 
             connection.on("PrivateMessages", function(messages) {
                 const messagesList = $('#privateChatMessagesList');
-                messagesList.empty();
-                messages.forEach(function(msg) {
-                    addPrivateMessageToUI(msg);
-                });
+                
+                // If loading first page, clear list
+                if (privateChatCurrentPage === 1) {
+                    messagesList.empty();
+                }
+                
+                if (messages && messages.length > 0) {
+                    // Store scroll position before adding messages
+                    const container = $('#privateChatMessagesContainer');
+                    const wasAtBottom = container[0].scrollHeight - container.scrollTop() <= container.height() + 100;
+                    
+                    // Add messages at the beginning if loading older messages
+                    messages.forEach(function(msg) {
+                        if (privateChatCurrentPage === 1) {
+                            addPrivateMessageToUI(msg);
+                        } else {
+                            // Prepend older messages
+                            const messageElement = createPrivateMessageElement(msg);
+                            messagesList.prepend(messageElement);
+                        }
+                    });
+                    
+                    // Restore scroll position or scroll to bottom
+                    if (privateChatCurrentPage === 1) {
+                        container.scrollTop(container[0].scrollHeight);
+                    } else {
+                        // Maintain scroll position when loading older messages
+                        const newScrollHeight = container[0].scrollHeight;
+                        container.scrollTop(newScrollHeight - (container.height() - (wasAtBottom ? container.height() : container.scrollTop())));
+                    }
+                    
+                    privateChatHasMore = messages.length === 50; // Assuming pageSize is 50
+                } else {
+                    privateChatHasMore = false;
+                }
+                
+                privateChatLoading = false;
             });
 
             connection.on("UserTypingPrivate", function(senderInfo) {
@@ -1525,6 +1672,9 @@
         // Private Chat Functions
         function openPrivateChat(friendId, friendName, friendAvatar) {
             currentPrivateChatFriendId = friendId;
+            privateChatCurrentPage = 1;
+            privateChatHasMore = true;
+            privateChatLoading = false;
             
             // Show private chat interface
             $('#privateChatInterface').removeClass('hidden');
@@ -1540,6 +1690,9 @@
             $('#privateChatAudioBtn').attr('data-user-id', friendId);
             $('#privateChatVideoBtn').attr('data-user-id', friendId);
             
+            // Setup scroll listener for pagination
+            setupPrivateChatScroll();
+            
             // Load messages and join private chat room
             if (connection && connection.state === signalR.HubConnectionState.Connected) {
                 connection.invoke("JoinPrivateChat", friendId).catch(function(err) {
@@ -1548,7 +1701,7 @@
                 connection.invoke("GetFriendOnlineStatus", friendId).catch(function(err) {
                     console.error("[Chat] Error getting friend online status:", err);
                 });
-                connection.invoke("GetPrivateMessages", friendId);
+                connection.invoke("GetPrivateMessages", friendId, 1, 50);
             }
             
             // Hide main chat
@@ -1557,15 +1710,23 @@
         }
 
         function closePrivateChat() {
+            // Leave private chat room
+            if (connection && connection.state === signalR.HubConnectionState.Connected && currentPrivateChatFriendId) {
+                connection.invoke("LeavePrivateChat", currentPrivateChatFriendId).catch(function(err) {
+                    console.error("[Chat] Error leaving private chat:", err);
+                });
+            }
+            
             currentPrivateChatFriendId = null;
+            privateChatCurrentPage = 1;
+            privateChatHasMore = true;
+            
             $('#privateChatInterface').addClass('hidden');
             $('#privateChatMessagesList').empty();
             $('#privateChatMessageInput').val('');
-            // Remove presence listener if attached
-            try {
-                // We used an inline function name in openPrivateChat; to be safe, remove all by cloning window
-                // Fallback: ignore if not found
-            } catch (_) {}
+            
+            // Remove scroll listener
+            $('#privateChatMessagesContainer').off('scroll');
             
             // Show main chat
             $('#messagesContainer').parent().show();
@@ -1582,8 +1743,7 @@
             }
         }
 
-        function addPrivateMessageToUI(message) {
-            const messagesList = $('#privateChatMessagesList');
+        function createPrivateMessageElement(message) {
             const isFromCurrentUser = message.senderId === currentUserId;
             
             const messageDiv = $('<div>').addClass(`flex mb-4 ${isFromCurrentUser ? 'justify-end' : 'justify-start'}`);
@@ -1592,17 +1752,65 @@
                 isFromCurrentUser ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-200'
             }`);
             
+            const messageTime = new Date(message.createdAt);
+            const timeString = messageTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
             messageContent.html(`
-                <p class="text-sm">${message.content}</p>
-                <p class="text-xs mt-1 opacity-75">${new Date(message.createdAt).toLocaleTimeString()}</p>
+                <p class="text-sm">${escapeHtml(message.content)}</p>
+                <p class="text-xs mt-1 opacity-75">${timeString}</p>
             `);
             
             messageDiv.append(messageContent);
-            messagesList.append(messageDiv);
+            return messageDiv;
+        }
+
+        function addPrivateMessageToUI(message) {
+            const messagesList = $('#privateChatMessagesList');
+            const messageElement = createPrivateMessageElement(message);
+            messagesList.append(messageElement);
             
             // Scroll to bottom
             const container = $('#privateChatMessagesContainer');
             container.scrollTop(container[0].scrollHeight);
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // Load more private messages (pagination)
+        function loadMorePrivateMessages() {
+            if (privateChatLoading || !privateChatHasMore || !currentPrivateChatFriendId) return;
+            
+            privateChatLoading = true;
+            privateChatCurrentPage++;
+            
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke("GetPrivateMessages", currentPrivateChatFriendId, privateChatCurrentPage, 50)
+                    .catch(function(err) {
+                        console.error("[Chat] Error loading more messages:", err);
+                        privateChatLoading = false;
+                        privateChatCurrentPage--;
+                    });
+            }
+        }
+
+        // Setup scroll listener for pagination
+        function setupPrivateChatScroll() {
+            const container = $('#privateChatMessagesContainer');
+            container.off('scroll').on('scroll', function() {
+                if ($(this).scrollTop() < 100 && privateChatHasMore && !privateChatLoading) {
+                    loadMorePrivateMessages();
+                }
+            });
         }
     </script>
 

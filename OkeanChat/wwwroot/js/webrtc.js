@@ -1,4 +1,4 @@
-q// WebRTC functionality for OkeanChat
+// WebRTC functionality for OkeanChat
 
 class WebRTCManager {
     constructor() {
@@ -11,13 +11,19 @@ class WebRTCManager {
         this.pendingOffer = null;
         this.onlineUserIds = new Set();
         this.presenceIntervalId = null;
+        this.isCaller = false;
+        this.callState = 'idle'; // idle, calling, ringing, connecting, connected, ended
         
-        // WebRTC configuration
+        // WebRTC configuration with multiple STUN servers for better connectivity
         this.config = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' },
+                { urls: 'stun:stun4.l.google.com:19302' }
+            ],
+            iceCandidatePoolSize: 10
         };
         
         this.init();
@@ -55,30 +61,52 @@ class WebRTCManager {
         }
 
         // SignalR event handlers
-        this.connection.on("IncomingCall", (callerId, callerName, callType) => {
+        this.connection.on("IncomingCall", (callerInfo, callType) => {
             // Store call info immediately
-            this.currentCall = { userId: callerId, callType };
-            this.showIncomingCallModal(callerId, callerName, callType);
+            this.currentCall = { 
+                userId: callerInfo.Id, 
+                userName: callerInfo.DisplayName || callerInfo.UserName,
+                avatar: callerInfo.Avatar,
+                callType: callType 
+            };
+            this.isCaller = false;
+            this.callState = 'ringing';
+            this.showIncomingCallModal(callerInfo, callType);
         });
 
-        this.connection.on("ReceiveOffer", (callerId, offer) => {
-            this.handleReceiveOffer(callerId, offer);
+        this.connection.on("CallInitiated", (targetUserId, callType) => {
+            if (this.currentCall && this.currentCall.userId === targetUserId) {
+                this.callState = 'calling';
+                this.updateCallInfo('Calling...');
+            }
         });
 
-        this.connection.on("ReceiveAnswer", (callerId, answer) => {
-            this.handleReceiveAnswer(callerId, answer);
+        this.connection.on("ReceiveOffer", (callerInfo, offer) => {
+            this.handleReceiveOffer(callerInfo.Id, offer);
         });
 
-        this.connection.on("ReceiveIceCandidate", (callerId, candidate) => {
-            this.handleReceiveIceCandidate(callerId, candidate);
+        this.connection.on("ReceiveAnswer", (receiverInfo, answer) => {
+            this.handleReceiveAnswer(receiverInfo.Id, answer);
         });
 
-        this.connection.on("CallRejected", (callerId) => {
+        this.connection.on("ReceiveIceCandidate", (userInfo, candidate) => {
+            this.handleReceiveIceCandidate(userInfo.Id, candidate);
+        });
+
+        this.connection.on("CallAccepted", (receiverInfo) => {
+            this.handleCallAccepted(receiverInfo);
+        });
+
+        this.connection.on("CallRejected", (receiverInfo) => {
             this.handleCallRejected();
         });
 
-        this.connection.on("CallEnded", (callerId) => {
+        this.connection.on("CallEnded", (userInfo) => {
             this.handleCallEnded();
+        });
+
+        this.connection.on("CallError", (errorMessage) => {
+            this.handleCallError(errorMessage);
         });
 
         this.connection.on("OnlineUsers", (users) => {
@@ -125,22 +153,60 @@ class WebRTCManager {
 
     async startCall(userId, callType) {
         try {
-            if (this.isInCall) {
+            if (this.isInCall || this.callState !== 'idle') {
                 this.showNotification("You are already in a call", "error");
                 return;
             }
 
             this.currentCall = { userId, callType };
-            this.isInCall = true;
+            this.isCaller = true;
+            this.callState = 'calling';
             
-            // Get user media
-            this.localStream = await navigator.mediaDevices.getUserMedia({
-                video: callType === 'video',
-                audio: true
-            });
+            // Get user media with error handling
+            try {
+                this.localStream = await navigator.mediaDevices.getUserMedia({
+                    video: callType === 'video',
+                    audio: true
+                });
+            } catch (mediaError) {
+                console.error("Media access error:", mediaError);
+                if (mediaError.name === 'NotAllowedError' || mediaError.name === 'PermissionDeniedError') {
+                    this.showNotification("Camera/Microphone permission denied. Please enable permissions and try again.", "error");
+                } else if (mediaError.name === 'NotFoundError' || mediaError.name === 'DevicesNotFoundError') {
+                    this.showNotification("No camera/microphone found. Please connect a device and try again.", "error");
+                } else {
+                    this.showNotification("Failed to access camera/microphone. Please check your device settings.", "error");
+                }
+                this.cleanup();
+                return;
+            }
 
             // Create peer connection
             this.peerConnection = new RTCPeerConnection(this.config);
+
+            // Handle connection state changes
+            this.peerConnection.onconnectionstatechange = () => {
+                console.log("Peer connection state:", this.peerConnection.connectionState);
+                if (this.peerConnection.connectionState === 'connected') {
+                    this.callState = 'connected';
+                    this.updateCallInfo('Connected');
+                } else if (this.peerConnection.connectionState === 'disconnected' || 
+                          this.peerConnection.connectionState === 'failed' ||
+                          this.peerConnection.connectionState === 'closed') {
+                    if (this.callState !== 'ended') {
+                        this.handleCallEnded();
+                    }
+                }
+            };
+
+            // Handle ICE connection state
+            this.peerConnection.oniceconnectionstatechange = () => {
+                console.log("ICE connection state:", this.peerConnection.iceConnectionState);
+                if (this.peerConnection.iceConnectionState === 'failed') {
+                    this.showNotification("Connection failed. Please try again.", "error");
+                    this.handleCallEnded();
+                }
+            };
 
             // Add local stream to peer connection
             this.localStream.getTracks().forEach(track => {
@@ -149,6 +215,7 @@ class WebRTCManager {
 
             // Handle remote stream
             this.peerConnection.ontrack = (event) => {
+                console.log("Received remote stream");
                 this.remoteStream = event.streams[0];
                 this.setupRemoteVideo();
             };
@@ -156,25 +223,29 @@ class WebRTCManager {
             // Handle ICE candidates
             this.peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    this.connection.invoke("SendIceCandidate", userId, JSON.stringify(event.candidate));
+                    this.connection.invoke("SendIceCandidate", userId, JSON.stringify(event.candidate))
+                        .catch(err => console.error("Error sending ICE candidate:", err));
                 }
             };
 
-            // Create and send offer
+            // Create and send offer first
             const offer = await this.peerConnection.createOffer();
             await this.peerConnection.setLocalDescription(offer);
-            await this.connection.invoke("SendOffer", userId, JSON.stringify(offer));
 
-            // Send call notification
-            await this.connection.invoke("SendCallNotification", userId, callType);
+            // Initiate call through hub (this sends IncomingCall to receiver)
+            await this.connection.invoke("InitiateCall", userId, callType);
+
+            // Send offer to receiver
+            await this.connection.invoke("SendOffer", userId, JSON.stringify(offer));
 
             // Show call interface (waiting for answer)
             this.showCallInterface(callType, true);
+            this.updateCallInfo('Calling...');
 
         } catch (error) {
             console.error("Error starting call:", error);
             this.cleanup();
-            this.showNotification("Failed to start call. Please check your camera/microphone permissions.", "error");
+            this.showNotification("Failed to start call: " + (error.message || "Unknown error"), "error");
         }
     }
 
@@ -188,16 +259,52 @@ class WebRTCManager {
 
             const callerId = this.currentCall.userId;
             const callType = this.currentCall.callType;
+            this.isCaller = false;
+            this.callState = 'connecting';
             this.isInCall = true;
 
-            // Get user media
-            this.localStream = await navigator.mediaDevices.getUserMedia({
-                video: callType === 'video',
-                audio: true
-            });
+            // Notify hub that call is accepted
+            await this.connection.invoke("AcceptCall", callerId);
+
+            // Get user media with error handling
+            try {
+                this.localStream = await navigator.mediaDevices.getUserMedia({
+                    video: callType === 'video',
+                    audio: true
+                });
+            } catch (mediaError) {
+                console.error("Media access error:", mediaError);
+                this.showNotification("Failed to access camera/microphone. Please check permissions.", "error");
+                await this.rejectCall();
+                return;
+            }
 
             // Create peer connection
             this.peerConnection = new RTCPeerConnection(this.config);
+
+            // Handle connection state changes
+            this.peerConnection.onconnectionstatechange = () => {
+                console.log("Peer connection state:", this.peerConnection.connectionState);
+                if (this.peerConnection.connectionState === 'connected') {
+                    this.callState = 'connected';
+                    this.updateCallInfo('Connected');
+                } else if (this.peerConnection.connectionState === 'disconnected' || 
+                          this.peerConnection.connectionState === 'failed' ||
+                          this.peerConnection.connectionState === 'closed') {
+                    if (this.callState !== 'ended') {
+                        this.handleCallEnded();
+                    }
+                }
+            };
+
+            // Handle ICE connection state
+            this.peerConnection.oniceconnectionstatechange = () => {
+                console.log("ICE connection state:", this.peerConnection.iceConnectionState);
+                if (this.peerConnection.iceConnectionState === 'failed') {
+                    this.showNotification("Connection failed. Please try again.", "error");
+                    this.handleCallEnded();
+                }
+            };
 
             // Add local stream
             this.localStream.getTracks().forEach(track => {
@@ -206,6 +313,7 @@ class WebRTCManager {
 
             // Handle remote stream
             this.peerConnection.ontrack = (event) => {
+                console.log("Received remote stream");
                 this.remoteStream = event.streams[0];
                 this.setupRemoteVideo();
             };
@@ -213,7 +321,8 @@ class WebRTCManager {
             // Handle ICE candidates
             this.peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    this.connection.invoke("SendIceCandidate", callerId, JSON.stringify(event.candidate));
+                    this.connection.invoke("SendIceCandidate", callerId, JSON.stringify(event.candidate))
+                        .catch(err => console.error("Error sending ICE candidate:", err));
                 }
             };
 
@@ -221,60 +330,90 @@ class WebRTCManager {
             if (this.pendingOffer && this.pendingOffer.callerId === callerId) {
                 await this.peerConnection.setRemoteDescription(this.pendingOffer.offer);
                 this.pendingOffer = null;
+                
+                // Create and send answer
+                const answer = await this.peerConnection.createAnswer();
+                await this.peerConnection.setLocalDescription(answer);
+                await this.connection.invoke("SendAnswer", callerId, JSON.stringify(answer));
             }
-
-            // Create and send answer
-            const answer = await this.peerConnection.createAnswer();
-            await this.peerConnection.setLocalDescription(answer);
-            await this.connection.invoke("SendAnswer", callerId, JSON.stringify(answer));
 
             // Show call interface
             this.showCallInterface(callType, false);
             this.hideIncomingCallModal();
+            this.updateCallInfo('Connecting...');
 
         } catch (error) {
             console.error("Error accepting call:", error);
             this.cleanup();
-            this.showNotification("Failed to accept call. Please check your camera/microphone permissions.", "error");
+            this.showNotification("Failed to accept call: " + (error.message || "Unknown error"), "error");
             this.hideIncomingCallModal();
         }
     }
 
-    async handleReceiveOffer(callerId, offer) {
+    async handleReceiveOffer(callerInfo, offer) {
         try {
-            // Store offer for when user accepts
-            this.pendingOffer = { callerId, offer: JSON.parse(offer) };
+            const callerId = callerInfo.Id || callerInfo;
+            const offerObj = typeof offer === 'string' ? JSON.parse(offer) : offer;
             
-            // If we already have a peer connection (user accepted before offer arrived), set the remote description
-            if (this.peerConnection && this.currentCall && this.currentCall.userId === callerId) {
-                await this.peerConnection.setRemoteDescription(this.pendingOffer.offer);
-                // Create and send answer if we haven't already
+            // If we're the receiver and have accepted the call, handle the offer
+            if (this.peerConnection && this.currentCall && this.currentCall.userId === callerId && !this.isCaller) {
+                await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offerObj));
+                
+                // Create and send answer
                 if (this.peerConnection.localDescription === null) {
                     const answer = await this.peerConnection.createAnswer();
                     await this.peerConnection.setLocalDescription(answer);
                     await this.connection.invoke("SendAnswer", callerId, JSON.stringify(answer));
                 }
-                this.pendingOffer = null;
+            } else {
+                // Store offer for when user accepts
+                this.pendingOffer = { callerId, offer: offerObj };
             }
             
         } catch (error) {
             console.error("Error handling offer:", error);
+            this.showNotification("Error handling call offer", "error");
         }
     }
 
-    async handleReceiveAnswer(callerId, answer) {
+    async handleReceiveAnswer(receiverId, answer) {
         try {
-            await this.peerConnection.setRemoteDescription(JSON.parse(answer));
+            if (!this.peerConnection) {
+                console.warn("Received answer but no peer connection");
+                return;
+            }
+            
+            const answerObj = typeof answer === 'string' ? JSON.parse(answer) : answer;
+            await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answerObj));
+            this.callState = 'connecting';
+            this.updateCallInfo('Connecting...');
         } catch (error) {
             console.error("Error handling answer:", error);
+            this.showNotification("Error handling call answer", "error");
         }
     }
 
-    async handleReceiveIceCandidate(callerId, candidate) {
+    async handleReceiveIceCandidate(userId, candidate) {
         try {
-            await this.peerConnection.addIceCandidate(JSON.parse(candidate));
+            if (!this.peerConnection) {
+                console.warn("Received ICE candidate but no peer connection");
+                return;
+            }
+            
+            const candidateObj = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidateObj));
         } catch (error) {
-            console.error("Error handling ICE candidate:", error);
+            // Ignore errors for ICE candidates that are already processed
+            if (error.message && !error.message.includes('already processed')) {
+                console.error("Error handling ICE candidate:", error);
+            }
+        }
+    }
+
+    handleCallAccepted(receiverInfo) {
+        if (this.isCaller && this.callState === 'calling') {
+            this.callState = 'connecting';
+            this.updateCallInfo('Call accepted, connecting...');
         }
     }
 
@@ -305,6 +444,7 @@ class WebRTCManager {
 
     handleCallRejected() {
         this.showNotification("Call was rejected", "info");
+        this.callState = 'ended';
         this.cleanup();
         this.hideCallInterface();
         this.hideIncomingCallModal();
@@ -312,6 +452,15 @@ class WebRTCManager {
 
     handleCallEnded() {
         this.showNotification("Call ended", "info");
+        this.callState = 'ended';
+        this.cleanup();
+        this.hideCallInterface();
+        this.hideIncomingCallModal();
+    }
+
+    handleCallError(errorMessage) {
+        this.showNotification(errorMessage || "Call error occurred", "error");
+        this.callState = 'ended';
         this.cleanup();
         this.hideCallInterface();
         this.hideIncomingCallModal();
@@ -319,23 +468,35 @@ class WebRTCManager {
 
     cleanup() {
         if (this.localStream) {
-            this.localStream.getTracks().forEach(track => track.stop());
+            this.localStream.getTracks().forEach(track => {
+                track.stop();
+                track.enabled = false;
+            });
             this.localStream = null;
         }
         
         if (this.remoteStream) {
-            this.remoteStream.getTracks().forEach(track => track.stop());
+            this.remoteStream.getTracks().forEach(track => {
+                track.stop();
+                track.enabled = false;
+            });
             this.remoteStream = null;
         }
         
         if (this.peerConnection) {
+            this.peerConnection.onicecandidate = null;
+            this.peerConnection.ontrack = null;
+            this.peerConnection.onconnectionstatechange = null;
+            this.peerConnection.oniceconnectionstatechange = null;
             this.peerConnection.close();
             this.peerConnection = null;
         }
         
         this.currentCall = null;
         this.isInCall = false;
+        this.isCaller = false;
         this.pendingOffer = null;
+        this.callState = 'idle';
     }
 
     setupRemoteVideo() {
@@ -345,29 +506,44 @@ class WebRTCManager {
         }
     }
 
-    showIncomingCallModal(callerId, callerName, callType) {
-        // Ensure call info is stored
-        if (!this.currentCall || this.currentCall.userId !== callerId) {
-            this.currentCall = { userId: callerId, callType };
-        }
-        
+    showIncomingCallModal(callerInfo, callType) {
         const modal = document.getElementById('incomingCallModal');
         const callerNameElement = document.getElementById('callerName');
         const callTypeElement = document.getElementById('callType');
         
+        const callerName = callerInfo.DisplayName || callerInfo.UserName || 'Unknown';
         if (callerNameElement) callerNameElement.textContent = callerName;
         if (callTypeElement) callTypeElement.textContent = callType === 'video' ? 'Video Call' : 'Audio Call';
         
         // Update icon based on call type
         if (modal) {
-            const iconContainer = modal.querySelector('.bg-blue-500');
+            const iconContainer = modal.querySelector('.bg-blue-500, .w-16');
             if (iconContainer) {
                 const icon = iconContainer.querySelector('i');
                 if (icon) {
                     icon.className = callType === 'video' ? 'fas fa-video text-white text-2xl' : 'fas fa-phone text-white text-2xl';
                 }
             }
+            
+            // Show avatar if available
+            if (callerInfo.Avatar) {
+                const avatarImg = iconContainer?.querySelector('img');
+                if (avatarImg) {
+                    avatarImg.src = callerInfo.Avatar;
+                    avatarImg.style.display = 'block';
+                } else if (iconContainer) {
+                    iconContainer.innerHTML = `<img src="${callerInfo.Avatar}" alt="${callerName}" class="w-full h-full rounded-full object-cover">`;
+                }
+            }
+            
             modal.classList.remove('hidden');
+        }
+    }
+
+    updateCallInfo(message) {
+        const callInfo = document.getElementById('callInfo');
+        if (callInfo) {
+            callInfo.textContent = message;
         }
     }
 

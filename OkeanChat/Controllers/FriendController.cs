@@ -321,6 +321,51 @@ namespace OkeanChat.Controllers
 
             return Ok(new { message = "Friend removed" });
         }
+
+        [HttpGet("unread-count")]
+        public async Task<IActionResult> GetUnreadCount()
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            var unreadCount = await _context.PrivateMessages
+                .CountAsync(m => m.ReceiverId == currentUser.Id && !m.IsRead);
+
+            return Ok(new { unreadCount });
+        }
+
+        [HttpGet("unread-by-friend")]
+        public async Task<IActionResult> GetUnreadByFriend()
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            var unreadByFriend = await _context.PrivateMessages
+                .Include(m => m.Sender)
+                .Where(m => m.ReceiverId == currentUser.Id && !m.IsRead)
+                .GroupBy(m => m.SenderId)
+                .Select(g => new
+                {
+                    FriendId = g.Key,
+                    FriendName = g.First().Sender.DisplayName ?? g.First().Sender.UserName,
+                    FriendAvatar = g.First().Sender.Avatar,
+                    UnreadCount = g.Count(),
+                    LastMessage = g.OrderByDescending(m => m.CreatedAt).Select(m => new
+                    {
+                        Content = m.Content,
+                        CreatedAt = m.CreatedAt
+                    }).FirstOrDefault()
+                })
+                .ToListAsync();
+
+            return Ok(unreadByFriend);
+        }
     }
 
     public class FriendRequestModel

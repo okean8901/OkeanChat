@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OkeanChat")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+697241658c06457a710f034cba9918b6986aee74")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ee1747da918d2c9eca4974d5a2778b5a203ce0ee")]
 [assembly: System.Reflection.AssemblyProductAttribute("OkeanChat")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OkeanChat")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
