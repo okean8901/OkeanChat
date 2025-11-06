@@ -1,4 +1,4 @@
-// WebRTC functionality for OkeanChat
+q// WebRTC functionality for OkeanChat
 
 class WebRTCManager {
     constructor() {
@@ -8,6 +8,9 @@ class WebRTCManager {
         this.currentCall = null;
         this.connection = null;
         this.isInCall = false;
+        this.pendingOffer = null;
+        this.onlineUserIds = new Set();
+        this.presenceIntervalId = null;
         
         // WebRTC configuration
         this.config = {
@@ -33,10 +36,28 @@ class WebRTCManager {
         this.connection.start().then(() => {
             console.log("WebRTC Hub connected");
             this.getOnlineUsers();
+            // Periodic presence refresh to correct drift
+            if (this.presenceIntervalId) clearInterval(this.presenceIntervalId);
+            this.presenceIntervalId = setInterval(() => this.getOnlineUsers(), 30000);
         }).catch(err => console.error("WebRTC Hub connection error:", err));
+
+        // Handle connection lifecycle
+        this.connection.onclose(() => {
+            if (this.presenceIntervalId) {
+                clearInterval(this.presenceIntervalId);
+                this.presenceIntervalId = null;
+            }
+        });
+        if (typeof this.connection.onreconnected === 'function') {
+            this.connection.onreconnected(() => {
+                this.getOnlineUsers();
+            });
+        }
 
         // SignalR event handlers
         this.connection.on("IncomingCall", (callerId, callerName, callType) => {
+            // Store call info immediately
+            this.currentCall = { userId: callerId, callType };
             this.showIncomingCallModal(callerId, callerName, callType);
         });
 
@@ -62,14 +83,20 @@ class WebRTCManager {
 
         this.connection.on("OnlineUsers", (users) => {
             this.updateOnlineUsers(users);
+            this.syncFriendsPresence(users);
+            this.relayPresenceToUI();
         });
 
         this.connection.on("UserOnline", (userId, userName) => {
             this.addOnlineUser(userId, userName);
+            this.setFriendOnlineState(userId, true);
+            this.relayPresenceToUI();
         });
 
         this.connection.on("UserOffline", (userId) => {
             this.removeOnlineUser(userId);
+            this.setFriendOnlineState(userId, false);
+            this.relayPresenceToUI();
         });
     }
 
@@ -98,6 +125,11 @@ class WebRTCManager {
 
     async startCall(userId, callType) {
         try {
+            if (this.isInCall) {
+                this.showNotification("You are already in a call", "error");
+                return;
+            }
+
             this.currentCall = { userId, callType };
             this.isInCall = true;
             
@@ -128,23 +160,39 @@ class WebRTCManager {
                 }
             };
 
+            // Create and send offer
+            const offer = await this.peerConnection.createOffer();
+            await this.peerConnection.setLocalDescription(offer);
+            await this.connection.invoke("SendOffer", userId, JSON.stringify(offer));
+
             // Send call notification
             await this.connection.invoke("SendCallNotification", userId, callType);
 
-            // Show call interface
+            // Show call interface (waiting for answer)
             this.showCallInterface(callType, true);
 
         } catch (error) {
             console.error("Error starting call:", error);
+            this.cleanup();
             this.showNotification("Failed to start call. Please check your camera/microphone permissions.", "error");
         }
     }
 
     async acceptCall() {
         try {
+            if (!this.currentCall) {
+                console.error("No call to accept");
+                this.hideIncomingCallModal();
+                return;
+            }
+
+            const callerId = this.currentCall.userId;
+            const callType = this.currentCall.callType;
+            this.isInCall = true;
+
             // Get user media
             this.localStream = await navigator.mediaDevices.getUserMedia({
-                video: this.currentCall.callType === 'video',
+                video: callType === 'video',
                 audio: true
             });
 
@@ -155,41 +203,6 @@ class WebRTCManager {
             this.localStream.getTracks().forEach(track => {
                 this.peerConnection.addTrack(track, this.localStream);
             });
-
-            // Handle remote stream
-            this.peerConnection.ontrack = (event) => {
-                this.remoteStream = event.streams[0];
-                this.setupRemoteVideo();
-            };
-
-            // Handle ICE candidates
-            this.peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    this.connection.invoke("SendIceCandidate", this.currentCall.userId, JSON.stringify(event.candidate));
-                }
-            };
-
-            // Create and send answer
-            const answer = await this.peerConnection.createAnswer();
-            await this.peerConnection.setLocalDescription(answer);
-            await this.connection.invoke("SendAnswer", this.currentCall.userId, JSON.stringify(answer));
-
-            // Show call interface
-            this.showCallInterface(this.currentCall.callType, false);
-            this.hideIncomingCallModal();
-
-        } catch (error) {
-            console.error("Error accepting call:", error);
-            this.showNotification("Failed to accept call.", "error");
-        }
-    }
-
-    async handleReceiveOffer(callerId, offer) {
-        try {
-            this.currentCall = { userId: callerId };
-            
-            // Create peer connection
-            this.peerConnection = new RTCPeerConnection(this.config);
 
             // Handle remote stream
             this.peerConnection.ontrack = (event) => {
@@ -204,25 +217,46 @@ class WebRTCManager {
                 }
             };
 
-            // Set remote description
-            await this.peerConnection.setRemoteDescription(JSON.parse(offer));
-
-            // Get user media
-            this.localStream = await navigator.mediaDevices.getUserMedia({
-                video: this.currentCall.callType === 'video',
-                audio: true
-            });
-
-            // Add local stream
-            this.localStream.getTracks().forEach(track => {
-                this.peerConnection.addTrack(track, this.localStream);
-            });
+            // If we have a pending offer, use it; otherwise wait for offer
+            if (this.pendingOffer && this.pendingOffer.callerId === callerId) {
+                await this.peerConnection.setRemoteDescription(this.pendingOffer.offer);
+                this.pendingOffer = null;
+            }
 
             // Create and send answer
             const answer = await this.peerConnection.createAnswer();
             await this.peerConnection.setLocalDescription(answer);
             await this.connection.invoke("SendAnswer", callerId, JSON.stringify(answer));
 
+            // Show call interface
+            this.showCallInterface(callType, false);
+            this.hideIncomingCallModal();
+
+        } catch (error) {
+            console.error("Error accepting call:", error);
+            this.cleanup();
+            this.showNotification("Failed to accept call. Please check your camera/microphone permissions.", "error");
+            this.hideIncomingCallModal();
+        }
+    }
+
+    async handleReceiveOffer(callerId, offer) {
+        try {
+            // Store offer for when user accepts
+            this.pendingOffer = { callerId, offer: JSON.parse(offer) };
+            
+            // If we already have a peer connection (user accepted before offer arrived), set the remote description
+            if (this.peerConnection && this.currentCall && this.currentCall.userId === callerId) {
+                await this.peerConnection.setRemoteDescription(this.pendingOffer.offer);
+                // Create and send answer if we haven't already
+                if (this.peerConnection.localDescription === null) {
+                    const answer = await this.peerConnection.createAnswer();
+                    await this.peerConnection.setLocalDescription(answer);
+                    await this.connection.invoke("SendAnswer", callerId, JSON.stringify(answer));
+                }
+                this.pendingOffer = null;
+            }
+            
         } catch (error) {
             console.error("Error handling offer:", error);
         }
@@ -261,7 +295,9 @@ class WebRTCManager {
             if (this.currentCall) {
                 await this.connection.invoke("RejectCall", this.currentCall.userId);
             }
+            this.cleanup();
             this.hideIncomingCallModal();
+            this.pendingOffer = null;
         } catch (error) {
             console.error("Error rejecting call:", error);
         }
@@ -271,18 +307,25 @@ class WebRTCManager {
         this.showNotification("Call was rejected", "info");
         this.cleanup();
         this.hideCallInterface();
+        this.hideIncomingCallModal();
     }
 
     handleCallEnded() {
         this.showNotification("Call ended", "info");
         this.cleanup();
         this.hideCallInterface();
+        this.hideIncomingCallModal();
     }
 
     cleanup() {
         if (this.localStream) {
             this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
+        }
+        
+        if (this.remoteStream) {
+            this.remoteStream.getTracks().forEach(track => track.stop());
+            this.remoteStream = null;
         }
         
         if (this.peerConnection) {
@@ -292,6 +335,7 @@ class WebRTCManager {
         
         this.currentCall = null;
         this.isInCall = false;
+        this.pendingOffer = null;
     }
 
     setupRemoteVideo() {
@@ -302,6 +346,11 @@ class WebRTCManager {
     }
 
     showIncomingCallModal(callerId, callerName, callType) {
+        // Ensure call info is stored
+        if (!this.currentCall || this.currentCall.userId !== callerId) {
+            this.currentCall = { userId: callerId, callType };
+        }
+        
         const modal = document.getElementById('incomingCallModal');
         const callerNameElement = document.getElementById('callerName');
         const callTypeElement = document.getElementById('callType');
@@ -309,7 +358,15 @@ class WebRTCManager {
         if (callerNameElement) callerNameElement.textContent = callerName;
         if (callTypeElement) callTypeElement.textContent = callType === 'video' ? 'Video Call' : 'Audio Call';
         
+        // Update icon based on call type
         if (modal) {
+            const iconContainer = modal.querySelector('.bg-blue-500');
+            if (iconContainer) {
+                const icon = iconContainer.querySelector('i');
+                if (icon) {
+                    icon.className = callType === 'video' ? 'fas fa-video text-white text-2xl' : 'fas fa-phone text-white text-2xl';
+                }
+            }
             modal.classList.remove('hidden');
         }
     }
@@ -325,6 +382,7 @@ class WebRTCManager {
         const callInterface = document.getElementById('callInterface');
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
+        const callInfo = document.getElementById('callInfo');
         
         if (callInterface) {
             callInterface.classList.remove('hidden');
@@ -334,52 +392,181 @@ class WebRTCManager {
             localVideo.srcObject = this.localStream;
         }
         
+        // Update call info
+        if (callInfo) {
+            callInfo.textContent = callType === 'video' ? 'Video Call in progress...' : 'Audio Call in progress...';
+        }
+        
         // Show/hide video elements based on call type
         if (callType === 'audio') {
             if (localVideo) localVideo.style.display = 'none';
             if (remoteVideo) remoteVideo.style.display = 'none';
+            // Show audio placeholder
+            if (remoteVideo && remoteVideo.parentElement) {
+                const audioPlaceholder = remoteVideo.parentElement.querySelector('.audio-placeholder');
+                if (!audioPlaceholder) {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'audio-placeholder w-full h-full flex items-center justify-center bg-gray-800';
+                    placeholder.innerHTML = `
+                        <div class="text-center">
+                            <i class="fas fa-phone text-white text-6xl mb-4"></i>
+                            <p class="text-white text-xl">Audio Call</p>
+                        </div>
+                    `;
+                    remoteVideo.parentElement.appendChild(placeholder);
+                }
+            }
         } else {
             if (localVideo) localVideo.style.display = 'block';
             if (remoteVideo) remoteVideo.style.display = 'block';
+            // Remove audio placeholder if exists
+            const audioPlaceholder = remoteVideo?.parentElement?.querySelector('.audio-placeholder');
+            if (audioPlaceholder) {
+                audioPlaceholder.remove();
+            }
         }
     }
 
     hideCallInterface() {
         const callInterface = document.getElementById('callInterface');
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        
         if (callInterface) {
             callInterface.classList.add('hidden');
+        }
+        
+        // Clear video sources
+        if (localVideo) {
+            localVideo.srcObject = null;
+        }
+        if (remoteVideo) {
+            remoteVideo.srcObject = null;
+        }
+        
+        // Remove audio placeholder
+        const audioPlaceholder = document.querySelector('.audio-placeholder');
+        if (audioPlaceholder) {
+            audioPlaceholder.remove();
         }
     }
 
     updateOnlineUsers(users) {
         const onlineUsersList = document.getElementById('onlineUsersList');
-        if (onlineUsersList) {
-            onlineUsersList.innerHTML = '';
-            users.forEach(user => {
-                const userElement = this.createUserElement(user);
-                onlineUsersList.appendChild(userElement);
+        if (!onlineUsersList) return;
+
+        // Normalize: keep only users marked online if such flag exists; otherwise assume provided list is online-only
+        const normalized = Array.isArray(users) ? users.filter(u => {
+            const flags = [u.IsOnline, u.isOnline, u.Online];
+            const hasFlag = flags.some(v => typeof v !== 'undefined');
+            return hasFlag ? !!(u.IsOnline || u.isOnline || u.Online) : true;
+        }) : [];
+
+        // Track online ids
+        this.onlineUserIds = new Set(normalized.map(u => String(u.Id)));
+
+        // Only show online FRIENDS: intersect with ids present in #friendsList
+        const friendItems = document.querySelectorAll('#friendsList .friend-item');
+        const friendIdSet = new Set(Array.from(friendItems).map(el => String(el.getAttribute('data-friend-id'))));
+
+        // Optional: don't display self if available on window
+        const selfId = window.currentUserId ? String(window.currentUserId) : null;
+
+        onlineUsersList.innerHTML = '';
+        normalized.forEach(user => {
+            if (selfId && String(user.Id) === selfId) return;
+            if (!friendIdSet.has(String(user.Id))) return;
+            // de-dup by Id
+            if (onlineUsersList.querySelector(`[data-user-id="${user.Id}"]`)) return;
+            const userElement = this.createUserElement(user);
+            onlineUsersList.appendChild(userElement);
+        });
+    }
+
+    // Presence helpers for Friends list (left sidebar)
+    syncFriendsPresence(users) {
+        try {
+            const onlineSet = new Set((users || []).map(u => String(u.Id)));
+            const friendItems = document.querySelectorAll('#friendsList .friend-item');
+            friendItems.forEach(item => {
+                const friendId = item.getAttribute('data-friend-id');
+                if (!friendId) return;
+                const isOnline = onlineSet.has(String(friendId));
+                this.applyPresenceToFriendItem(item, isOnline);
             });
+        } catch (e) {
+            console.warn('syncFriendsPresence error:', e);
         }
+    }
+
+    setFriendOnlineState(userId, isOnline) {
+        try {
+            const item = document.querySelector(`#friendsList .friend-item[data-friend-id="${userId}"]`);
+            if (item) {
+                this.applyPresenceToFriendItem(item, isOnline);
+            }
+        } catch (e) {
+            console.warn('setFriendOnlineState error:', e);
+        }
+    }
+
+    applyPresenceToFriendItem(item, isOnline) {
+        // Dot indicator
+        const dot = item.querySelector('.friend-status-indicator');
+        if (dot) {
+            dot.classList.remove('bg-green-500', 'bg-gray-500');
+            dot.classList.add(isOnline ? 'bg-green-500' : 'bg-gray-500');
+        }
+        // Status text (use stable class)
+        const statusText = item.querySelector('.friend-status-text');
+        if (statusText) {
+            statusText.textContent = isOnline ? 'Online' : 'Offline';
+            statusText.classList.remove('text-gray-400', 'text-gray-500');
+            statusText.classList.add(isOnline ? 'text-gray-400' : 'text-gray-500');
+        }
+        // Optional: opacity styling if you want to dim offline users (kept subtle)
+        item.style.opacity = isOnline ? '1' : '0.95';
     }
 
     addOnlineUser(userId, userName) {
         const onlineUsersList = document.getElementById('onlineUsersList');
-        if (onlineUsersList) {
-            const userElement = this.createUserElement({
-                Id: userId,
-                UserName: userName,
-                DisplayName: userName,
-                Avatar: null
-            });
-            onlineUsersList.appendChild(userElement);
-        }
+        if (!onlineUsersList) return;
+        // prevent self and duplicates
+        const selfId = window.currentUserId ? String(window.currentUserId) : null;
+        if (selfId && String(userId) === selfId) return;
+        // only show if user is in friends list
+        const isFriend = !!document.querySelector(`#friendsList .friend-item[data-friend-id="${userId}"]`);
+        if (!isFriend) return;
+        if (onlineUsersList.querySelector(`[data-user-id="${userId}"]`)) return;
+        this.onlineUserIds.add(String(userId));
+        const userElement = this.createUserElement({
+            Id: userId,
+            UserName: userName,
+            DisplayName: userName,
+            Avatar: null,
+            IsOnline: true
+        });
+        onlineUsersList.appendChild(userElement);
     }
 
     removeOnlineUser(userId) {
-        const userElement = document.querySelector(`[data-user-id="${userId}"]`);
-        if (userElement) {
-            userElement.remove();
-        }
+        const onlineUsersList = document.getElementById('onlineUsersList');
+        if (!onlineUsersList) return;
+        const userElement = onlineUsersList.querySelector(`[data-user-id="${userId}"]`);
+        if (userElement) userElement.remove();
+        this.onlineUserIds.delete(String(userId));
+    }
+
+    // Expose presence
+    isUserOnline(userId) {
+        return this.onlineUserIds.has(String(userId));
+    }
+
+    relayPresenceToUI() {
+        try {
+            const event = new CustomEvent('presence:updated');
+            window.dispatchEvent(event);
+        } catch (_) {}
     }
 
     createUserElement(user) {

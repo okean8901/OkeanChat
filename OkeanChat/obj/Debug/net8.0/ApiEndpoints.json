@@ -69,6 +69,22 @@
   },
   {
     "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "CancelFriendRequest",
+    "RelativePath": "api/Friend/cancel",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "model",
+        "Type": "OkeanChat.Controllers.FriendRequestModel",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
     "Method": "GetFriends",
     "RelativePath": "api/Friend/list",
     "HttpMethod": "GET",

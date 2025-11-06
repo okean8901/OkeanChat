@@ -4,14 +4,27 @@
     ViewData["Title"] = "Chat - " + ViewBag.CurrentChannel.Name;
 }
 
-<div class="min-h-screen bg-gray-900 flex">
+<div class="min-h-screen bg-gray-900 flex relative">
+    <!-- Mobile Menu Toggle -->
+    <button id="mobileMenuToggle" class="lg:hidden fixed top-4 left-4 z-50 bg-gray-800 text-white p-2 rounded-md hover:bg-gray-700">
+        <i class="fas fa-bars text-xl"></i>
+    </button>
+    
+    <!-- Mobile Overlay -->
+    <div id="mobileOverlay" class="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
+    
     <!-- Sidebar -->
-    <div class="w-64 bg-gray-800 flex flex-col">
+    <div id="sidebar" class="sidebar-mobile sidebar-hidden w-64 bg-gray-800 flex flex-col fixed lg:static inset-y-0 left-0 transition-transform duration-300 z-40" style="transform: translateX(-100%);">
         <!-- Header -->
         <div class="p-4 border-b border-gray-700">
-            <div class="flex items-center">
-                <img src="~/img/logo.jpg" alt="OkeanChat Logo" class="w-10 h-10 rounded mr-3" />
-                <h1 class="text-xl font-bold text-white">OkeanChat</h1>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <img src="~/img/logo.jpg" alt="OkeanChat Logo" class="w-10 h-10 rounded mr-3" />
+                    <h1 class="text-xl font-bold text-white">OkeanChat</h1>
+                </div>
+                <button id="closeSidebarBtn" class="lg:hidden text-gray-400 hover:text-white">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
             </div>
         </div>
 
@@ -44,31 +57,47 @@
         <div class="p-4 border-t border-gray-700">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Friends</h2>
-                <button id="addFriendBtn" class="text-gray-400 hover:text-white" title="Add Friend">
-                    <i class="fas fa-user-plus"></i>
+                <div class="flex items-center space-x-2">
+                    <button id="addFriendBtn" class="text-gray-400 hover:text-white transition-colors" title="Add Friend">
+                        <i class="fas fa-user-plus"></i>
+                    </button>
+                    <button id="refreshFriendsBtn" class="text-gray-400 hover:text-white transition-colors" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Friend Requests Badge -->
+            <div id="friendRequestsBadge" class="mb-3 hidden">
+                <button id="friendRequestsBtn" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm flex items-center justify-between transition-colors shadow-lg">
+                    <span class="flex items-center">
+                        <i class="fas fa-user-clock mr-2"></i>
+                        Friend Requests
+                    </span>
+                    <span id="friendRequestsCount" class="bg-white text-yellow-600 rounded-full px-2 py-1 text-xs font-bold animate-pulse">0</span>
                 </button>
             </div>
             
             <!-- Search Friends -->
             <div class="mb-3">
-                <input type="text" id="searchFriendInput" 
-                       class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm placeholder-gray-400 focus:outline-none focus:border-blue-500" 
-                       placeholder="Search username...">
+                <div class="flex items-center bg-gray-700 border border-gray-600 rounded overflow-hidden">
+                    <div class="px-2 text-gray-400">
+                        <i class="fas fa-search text-sm"></i>
+                    </div>
+                    <input type="text" id="searchFriendInput" 
+                           class="flex-1 bg-gray-700 px-3 py-2 text-white text-sm placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors border-0" 
+                           placeholder="Search or add friends...">
+                </div>
             </div>
             
-            <div id="searchResults" class="mb-3 hidden space-y-1"></div>
-            
-            <!-- Friend Requests Badge -->
-            <div id="friendRequestsBadge" class="mb-3 hidden">
-                <button id="friendRequestsBtn" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded text-sm flex items-center justify-between">
-                    <span>Friend Requests</span>
-                    <span id="friendRequestsCount" class="bg-white text-yellow-600 rounded-full px-2 py-1 text-xs font-bold">0</span>
-                </button>
-            </div>
+            <div id="searchResults" class="mb-3 hidden space-y-2 max-h-64 overflow-y-auto"></div>
             
             <!-- Friends List -->
-            <div id="friendsList" class="space-y-1 max-h-48 overflow-y-auto">
-                <!-- Friends will be populated here -->
+            <div id="friendsList" class="space-y-1 max-h-64 overflow-y-auto">
+                <div class="text-center py-4">
+                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                    <p class="text-gray-400 text-xs mt-2">Loading friends...</p>
+                </div>
             </div>
         </div>
 
@@ -76,13 +105,21 @@
         <div class="p-4 border-t border-gray-700">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Online Users</h2>
-                <button id="refreshUsersBtn" class="text-gray-400 hover:text-white">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
+                <div class="flex items-center space-x-2">
+                    <button id="refreshUsersBtn" class="text-gray-400 hover:text-white transition-colors" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <div class="text-xs text-gray-500" title="Online/Total">
+                        <span id="onlineUsersCount">0</span>/<span id="totalUsersCount">0</span>
+                    </div>
+                </div>
             </div>
             
             <div id="onlineUsersList" class="space-y-1 max-h-48 overflow-y-auto">
-                <!-- Online users will be populated here -->
+                <div class="text-center py-4">
+                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                    <p class="text-gray-400 text-xs mt-2">Loading users...</p>
+                </div>
             </div>
         </div>
 
@@ -102,9 +139,16 @@
                         }
                     }
                 </div>
-                <div class="ml-3">
+                <div class="ml-3 flex-1">
                     <p class="text-sm font-medium text-white">@User.Identity?.Name</p>
                     <p class="text-xs text-gray-400">Online</p>
+                </div>
+                <!-- Friend Requests Badge Icon -->
+                <div id="friendRequestsIconBadge" class="relative hidden">
+                    <button id="friendRequestsIconBtn" class="relative p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-700">
+                        <i class="fas fa-user-friends text-lg"></i>
+                        <span id="friendRequestsIconCount" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"></span>
+                    </button>
                 </div>
             </div>
             <div class="mt-2 space-y-1">
@@ -117,7 +161,7 @@
     </div>
 
     <!-- Main Chat Area -->
-    <div class="flex-1 flex flex-col">
+    <div class="flex-1 flex flex-col w-full lg:w-auto">
         <!-- Channel Header -->
         <div class="bg-gray-800 border-b border-gray-700 px-6 py-4">
             <div class="flex items-center">
@@ -216,6 +260,104 @@
     </div>
 </div>
 
+<!-- Inline script for mobile menu - runs immediately, no jQuery dependency -->
+<script>
+    (function() {
+        // Mobile menu functions - no dependencies
+        function openSidebar() {
+            var sidebar = document.getElementById('sidebar');
+            var overlay = document.getElementById('mobileOverlay');
+            if (sidebar && overlay) {
+                sidebar.classList.remove('sidebar-hidden');
+                sidebar.classList.add('sidebar-open-class');
+                sidebar.style.transform = 'translateX(0)';
+                sidebar.style.webkitTransform = 'translateX(0)';
+                sidebar.style.display = 'flex';
+                overlay.classList.remove('hidden');
+                overlay.style.display = 'block';
+                document.body.classList.add('sidebar-open');
+            }
+        }
+        
+        function closeSidebar() {
+            var sidebar = document.getElementById('sidebar');
+            var overlay = document.getElementById('mobileOverlay');
+            if (sidebar && overlay) {
+                sidebar.classList.add('sidebar-hidden');
+                sidebar.classList.remove('sidebar-open-class');
+                sidebar.style.transform = 'translateX(-100%)';
+                sidebar.style.webkitTransform = 'translateX(-100%)';
+                overlay.classList.add('hidden');
+                overlay.style.display = 'none';
+                document.body.classList.remove('sidebar-open');
+            }
+        }
+        
+        // Setup when DOM is ready
+        function setupMobileMenu() {
+            var menuToggle = document.getElementById('mobileMenuToggle');
+            var overlay = document.getElementById('mobileOverlay');
+            var closeBtn = document.getElementById('closeSidebarBtn');
+            
+            if (menuToggle) {
+                menuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openSidebar();
+                });
+            }
+            
+            if (overlay) {
+                overlay.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeSidebar();
+                });
+            }
+            
+            if (closeBtn) {
+                closeBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeSidebar();
+                });
+            }
+            
+            // Close sidebar on window resize to desktop
+            window.addEventListener('resize', function() {
+                if (window.innerWidth >= 1024) {
+                    var sidebar = document.getElementById('sidebar');
+                    if (sidebar) {
+                        sidebar.style.transform = '';
+                        sidebar.style.webkitTransform = '';
+                    }
+                    closeSidebar();
+                }
+            });
+            
+            // Initialize sidebar state
+            if (window.innerWidth >= 1024) {
+                var sidebar = document.getElementById('sidebar');
+                if (sidebar) {
+                    sidebar.style.transform = '';
+                    sidebar.style.webkitTransform = '';
+                }
+            }
+        }
+        
+        // Run immediately if DOM is ready, otherwise wait
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupMobileMenu);
+        } else {
+            setupMobileMenu();
+        }
+        
+        // Make functions globally available for jQuery code
+        window.openSidebar = openSidebar;
+        window.closeSidebar = closeSidebar;
+    })();
+</script>
+
 @section Scripts {
     <script>
         let connection;
@@ -229,6 +371,13 @@
 
         $(document).ready(function() {
             initializeSignalR();
+            
+            // Close sidebar when clicking links on mobile (using global functions)
+            $('#sidebar a').on('click', function() {
+                if ($(window).width() < 1024 && window.closeSidebar) {
+                    window.closeSidebar();
+                }
+            });
 
             // Send message
             $('#sendButton').click(sendMessage);
@@ -281,6 +430,7 @@
         function initializeSignalR() {
             connection = new signalR.HubConnectionBuilder()
                 .withUrl("/chatHub")
+                .withAutomaticReconnect()
                 .build();
 
             connection.start().then(function() {
@@ -319,17 +469,25 @@
 
             // Online users list
             connection.on("OnlineUsers", function(users) {
+                console.log("[Client] OnlineUsers received", users);
                 updateOnlineUsersList(users);
             });
 
             // User came online
             connection.on("UserCameOnline", function(user) {
+                console.log("[Client] UserCameOnline", user);
                 addOnlineUser(user);
             });
 
             // User went offline
             connection.on("UserWentOffline", function(userId) {
+                console.log("[Client] UserWentOffline", userId);
                 removeOnlineUser(userId);
+            });
+
+            // Connection closed handler
+            connection.onclose(function(error) {
+                console.warn('[Client] SignalR connection closed', error);
             });
 
             // Private message handlers
@@ -570,6 +728,11 @@
             loadFriends();
             loadFriendRequests();
             
+            // Ensure icon badge is visible if there are requests
+            setTimeout(function() {
+                loadFriendRequests();
+            }, 500);
+            
             // If friendId is in URL, open private chat after a short delay
             if (friendIdFromUrl && currentUserId) {
                 setTimeout(function() {
@@ -588,19 +751,7 @@
                 }, 500);
             }
 
-            // Search friends
-            $('#searchFriendInput').on('input', function() {
-                const query = $(this).val().trim();
-                if (query.length < 3) {
-                    $('#searchResults').addClass('hidden').empty();
-                    return;
-                }
-
-                clearTimeout(friendSearchTimer);
-                friendSearchTimer = setTimeout(() => {
-                    searchUsers(query);
-                }, 500);
-            });
+            // Search friends - removed duplicate handler, already handled in loadFriends section
 
             // Add friend button
             $('#addFriendBtn').click(function() {
@@ -608,19 +759,71 @@
             });
 
             // Friend requests button
-            $('#friendRequestsBtn').click(function() {
+            $('#friendRequestsBtn, #friendRequestsIconBtn').click(function() {
                 showFriendRequestsModal();
+            });
+            
+            // Update friend requests icon badge - make it global
+            window.updateFriendRequestsIconBadge = function(count) {
+                const iconBadge = $('#friendRequestsIconBadge');
+                const countSpan = $('#friendRequestsIconCount');
+                
+                if (!iconBadge.length) {
+                    console.warn('Friend requests icon badge not found in DOM');
+                    return;
+                }
+                
+                if (count > 0) {
+                    iconBadge.removeClass('hidden');
+                    if (countSpan.length) {
+                        countSpan.text(count > 99 ? '99+' : count);
+                    }
+                } else {
+                    iconBadge.addClass('hidden');
+                }
+            };
+            
+            // Close modal handlers - using event delegation to ensure they work
+            $(document).on('click', '#closeFriendRequestsModal, #closeFriendRequestsModal2', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                $('#friendRequestsModal').addClass('hidden');
+            });
+            
+            // Close modal when clicking outside - using event delegation
+            $(document).on('click', '#friendRequestsModal', function(e) {
+                if (e.target === this) {
+                    $(this).addClass('hidden');
+                }
+            });
+            
+            // Prevent modal content clicks from closing modal
+            $(document).on('click', '#friendRequestsModal > div', function(e) {
+                e.stopPropagation();
             });
         });
 
         function searchUsers(username) {
+            const searchResults = $('#searchResults');
+            searchResults.removeClass('hidden').html(`
+                <div class="text-center py-4">
+                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                    <p class="text-gray-400 text-xs mt-2">Searching...</p>
+                </div>
+            `);
+            
             $.get('/api/Friend/search', { username: username })
                 .done(function(users) {
-                    const searchResults = $('#searchResults');
-                    searchResults.removeClass('hidden').empty();
+                    searchResults.empty();
 
                     if (users.length === 0) {
-                        searchResults.html('<p class="text-gray-400 text-sm p-2">No users found</p>');
+                        searchResults.html(`
+                            <div class="text-center py-4">
+                                <i class="fas fa-search text-gray-500 text-2xl mb-2"></i>
+                                <p class="text-gray-400 text-sm">No users found</p>
+                                <p class="text-gray-500 text-xs mt-1">Try a different username</p>
+                            </div>
+                        `);
                         return;
                     }
 
@@ -630,26 +833,43 @@
                     });
                 })
                 .fail(function() {
-                    console.error('Failed to search users');
+                    const retryBtn = $('<button>')
+                        .addClass('text-blue-400 text-xs mt-2 hover:underline')
+                        .text('Retry')
+                        .click(function() {
+                            searchUsers(username);
+                        });
+                    searchResults.html(`
+                        <div class="text-center py-4">
+                            <p class="text-red-400 text-sm">Failed to search users</p>
+                        </div>
+                    `);
+                    searchResults.find('div').append(retryBtn);
                 });
         }
 
         function createSearchUserElement(user) {
             const div = $('<div>')
-                .addClass('flex items-center justify-between p-2 bg-gray-700 rounded')
+                .addClass('flex items-center justify-between p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition-all duration-200')
                 .attr('data-user-id', user.id);
             
-            const userInfo = $('<div>').addClass('flex items-center');
-            const avatar = $('<div>').addClass('w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3 overflow-hidden');
+            const userInfo = $('<div>').addClass('flex items-center flex-1');
+            const avatar = $('<div>').addClass('w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-3 overflow-hidden flex-shrink-0 shadow-md');
             
             if (user.avatar) {
-                avatar.html(`<img src="${user.avatar}" alt="${user.displayName}" class="w-8 h-8 rounded-full">`);
+                avatar.html(`<img src="${user.avatar}" alt="${user.displayName}" class="w-10 h-10 rounded-full object-cover">`);
             } else {
                 avatar.html(`<span class="text-sm font-semibold text-white">${user.displayName.charAt(0).toUpperCase()}</span>`);
             }
             
-            const name = $('<span>').addClass('text-white text-sm').text(user.displayName);
-            userInfo.append(avatar).append(name);
+            const nameContainer = $('<div>').addClass('flex flex-col');
+            const name = $('<span>').addClass('text-white text-sm font-medium').text(user.displayName);
+            const userNameText = user.userName || '';
+            const usernameSpan = $('<span>').addClass('text-gray-400 text-xs');
+            usernameSpan.text('@@' + userNameText);
+            nameContainer.append(name).append(usernameSpan);
+            
+            userInfo.append(avatar).append(nameContainer);
             
             // Check friendship status
             const friendshipStatus = user.friendshipStatus;
@@ -657,29 +877,35 @@
             
             if (friendshipStatus && friendshipStatus.status === 'Pending') {
                 if (friendshipStatus.isRequester) {
-                    // User sent request, show Cancel button
+                    // User sent request, show "Added" button (Facebook style - can cancel)
                     actionBtn = $('<button>')
-                        .addClass('bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs')
-                        .html('<i class="fas fa-times"></i> Cancel')
+                        .addClass('added-friend-btn bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs transition-all hover:bg-gray-700 flex items-center space-x-2 font-medium')
+                        .html('<i class="fas fa-check"></i><span>Added</span>')
+                        .attr('data-user-id', user.id)
+                        .attr('data-friendship-id', friendshipStatus.friendshipId)
                         .click(function() {
                             cancelFriendRequest(user.id);
                         });
                 } else {
-                    // User received request, show Accept/Reject
-                    actionBtn = $('<span>')
-                        .addClass('text-yellow-400 text-xs')
-                        .text('Pending');
+                    // User received request, show Respond button
+                    actionBtn = $('<button>')
+                        .addClass('bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs transition-all hover:scale-105 flex items-center space-x-1')
+                        .html('<i class="fas fa-reply"></i><span>Respond</span>')
+                        .click(function() {
+                            showFriendRequestsModal();
+                        });
                 }
             } else if (friendshipStatus && friendshipStatus.status === 'Accepted') {
                 // Already friends
                 actionBtn = $('<span>')
-                    .addClass('text-green-400 text-xs')
-                    .text('Friends');
+                    .addClass('bg-green-600 text-white px-4 py-2 rounded-lg text-xs flex items-center space-x-1')
+                    .html('<i class="fas fa-check-circle"></i><span>Friends</span>');
             } else {
-                // No request, show Add button
+                // No request, show Add Friend button (Facebook style)
                 actionBtn = $('<button>')
-                    .addClass('bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs')
-                    .html('<i class="fas fa-user-plus"></i> Add')
+                    .addClass('add-friend-btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs transition-all hover:scale-105 flex items-center space-x-2 font-medium')
+                    .html('<i class="fas fa-user-plus"></i><span>Add Friend</span>')
+                    .attr('data-user-id', user.id)
                     .click(function() {
                         sendFriendRequest(user.id);
                     });
@@ -690,76 +916,137 @@
         }
 
         function sendFriendRequest(userId) {
-            $.post('/api/Friend/request', { userId: userId })
-                .done(function(response) {
-                    // Update the button to Cancel
-                    updateSearchUserButton(userId, 'sent');
-                })
-                .fail(function(xhr) {
-                    const error = xhr.responseJSON?.message || 'Failed to send friend request';
-                    alert(error);
-                });
+            const btn = $(`#searchResults [data-user-id="${userId}"]`).find('.add-friend-btn');
+            if (btn.length === 0) {
+                console.error('Add friend button not found for user:', userId);
+                return;
+            }
+            
+            if (!userId || userId.trim() === '') {
+                showNotification('Invalid user ID', 'error');
+                return;
+            }
+            
+            const originalHtml = btn.html();
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            
+            $.ajax({
+                url: '/api/Friend/request',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ userId: userId }),
+                success: function(response) {
+                    // Change to "Added" button (Facebook style)
+                    btn.removeClass('add-friend-btn bg-blue-600 hover:bg-blue-700')
+                        .addClass('added-friend-btn bg-gray-600 hover:bg-gray-700')
+                        .html('<i class="fas fa-check"></i><span>Added</span>')
+                        .off('click')
+                        .click(function() {
+                            cancelFriendRequest(userId);
+                        });
+                    btn.prop('disabled', false);
+                    
+                    showNotification('Friend request sent!', 'success');
+                    loadFriendRequests();
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error sending friend request:', {
+                        status: xhr.status,
+                        statusText: xhr.statusText,
+                        responseText: xhr.responseText,
+                        error: error
+                    });
+                    
+                    let errorMessage = 'Failed to send friend request';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    } else if (xhr.status === 401) {
+                        errorMessage = 'Please log in to send friend requests';
+                    } else if (xhr.status === 404) {
+                        errorMessage = 'User not found';
+                    } else if (xhr.status === 400) {
+                        errorMessage = xhr.responseText || 'Invalid request';
+                    }
+                    
+                    showNotification(errorMessage, 'error');
+                    btn.prop('disabled', false).html(originalHtml);
+                }
+            });
         }
 
         function cancelFriendRequest(userId) {
-            $.post('/api/Friend/cancel', { userId: userId })
-                .done(function(response) {
-                    // Update the button back to Add
-                    updateSearchUserButton(userId, 'none');
-                })
-                .fail(function(xhr) {
-                    const error = xhr.responseJSON?.message || 'Failed to cancel friend request';
-                    alert(error);
-                });
+            const btn = $(`#searchResults [data-user-id="${userId}"]`).find('.added-friend-btn');
+            if (btn.length === 0) {
+                console.error('Cancel friend button not found for user:', userId);
+                return;
+            }
+            
+            const originalHtml = btn.html();
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            
+            $.ajax({
+                url: '/api/Friend/cancel',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ userId: userId }),
+                success: function(response) {
+                    // Change back to "Add Friend" button
+                    btn.removeClass('added-friend-btn bg-gray-600 hover:bg-gray-700')
+                        .addClass('add-friend-btn bg-blue-600 hover:bg-blue-700')
+                        .html('<i class="fas fa-user-plus"></i><span>Add Friend</span>')
+                        .off('click')
+                        .click(function() {
+                            sendFriendRequest(userId);
+                        });
+                    btn.prop('disabled', false);
+                    
+                    showNotification('Friend request cancelled', 'success');
+                    loadFriendRequests();
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error cancelling friend request:', {
+                        status: xhr.status,
+                        statusText: xhr.statusText,
+                        responseText: xhr.responseText,
+                        error: error
+                    });
+                    
+                    let errorMessage = 'Failed to cancel friend request';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+                    
+                    showNotification(errorMessage, 'error');
+                    btn.prop('disabled', false).html(originalHtml);
+                }
+            });
         }
 
         function updateSearchUserButton(userId, status) {
             const userDiv = $(`#searchResults [data-user-id="${userId}"]`);
             if (userDiv.length === 0) return;
 
-            const actionBtn = userDiv.find('button, span').last();
-            const isButton = actionBtn.is('button');
+            const actionBtn = userDiv.find('.add-friend-btn, .added-friend-btn');
+            if (actionBtn.length === 0) return;
             
             if (status === 'sent') {
-                // Change to Cancel button
-                if (!isButton) {
-                    // Replace span with button
-                    const newBtn = $('<button>')
-                        .addClass('bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs')
-                        .html('<i class="fas fa-times"></i> Cancel')
+                // Change to "Added" button (Facebook style)
+                actionBtn.removeClass('add-friend-btn bg-blue-600 hover:bg-blue-700')
+                        .addClass('added-friend-btn bg-gray-600 hover:bg-gray-700')
+                        .html('<i class="fas fa-check"></i><span>Added</span>')
+                        .off('click')
                         .click(function() {
                             cancelFriendRequest(userId);
                         });
-                    actionBtn.replaceWith(newBtn);
-                } else {
-                    actionBtn.removeClass('bg-green-600 hover:bg-green-700')
-                            .addClass('bg-red-600 hover:bg-red-700')
-                            .html('<i class="fas fa-times"></i> Cancel')
-                            .off('click')
-                            .click(function() {
-                                cancelFriendRequest(userId);
-                            });
-                }
             } else if (status === 'none') {
-                // Change back to Add button
-                if (!isButton) {
-                    // Replace span with button
-                    const newBtn = $('<button>')
-                        .addClass('bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs')
-                        .html('<i class="fas fa-user-plus"></i> Add')
+                // Change back to "Add Friend" button
+                actionBtn.removeClass('added-friend-btn bg-gray-600 hover:bg-gray-700')
+                        .addClass('add-friend-btn bg-blue-600 hover:bg-blue-700')
+                        .html('<i class="fas fa-user-plus"></i><span>Add Friend</span>')
+                        .off('click')
                         .click(function() {
                             sendFriendRequest(userId);
                         });
-                    actionBtn.replaceWith(newBtn);
-                } else {
-                    actionBtn.removeClass('bg-red-600 hover:bg-red-700')
-                            .addClass('bg-green-600 hover:bg-green-700')
-                            .html('<i class="fas fa-user-plus"></i> Add')
-                            .off('click')
-                            .click(function() {
-                                sendFriendRequest(userId);
-                            });
-                }
             }
         }
 
@@ -767,75 +1054,147 @@
             $.get('/api/Friend/list')
                 .done(function(friendships) {
                     const friendsList = $('#friendsList');
-                    friendsList.empty();
-
+                    
                     if (friendships.length === 0) {
-                        friendsList.html('<p class="text-gray-400 text-sm p-2">No friends yet</p>');
+                        friendsList.html(`
+                            <div class="text-center py-8">
+                                <div class="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-user-friends text-gray-500 text-2xl"></i>
+                                </div>
+                                <p class="text-gray-400 text-sm mb-2">No friends yet</p>
+                                <p class="text-gray-500 text-xs">Search for users to add them as friends</p>
+                            </div>
+                        `);
+                        $('#friendsListFilter').addClass('hidden');
                         return;
                     }
+
+                    friendsList.empty();
+                    
+                    // Sort friends alphabetically
+                    friendships.sort((a, b) => {
+                        const nameA = (a.friend.displayName || a.friend.userName).toLowerCase();
+                        const nameB = (b.friend.displayName || b.friend.userName).toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
 
                     friendships.forEach(function(friendship) {
                         const friendElement = createFriendElement(friendship.friend, friendship.friendshipId);
                         friendsList.append(friendElement);
                     });
+
+                    // After rendering, request a fresh presence sync
+                    if (window.webrtcManager && typeof window.webrtcManager.getOnlineUsers === 'function') {
+                        try { window.webrtcManager.getOnlineUsers(); } catch (e) { /* no-op */ }
+                    }
                 })
                 .fail(function() {
-                    console.error('Failed to load friends');
+                    const friendsList = $('#friendsList');
+                    friendsList.html(`
+                        <div class="text-center py-4">
+                            <p class="text-red-400 text-sm">Failed to load friends</p>
+                            <button onclick="loadFriends()" class="text-blue-400 text-xs mt-2 hover:underline">Retry</button>
+                        </div>
+                    `);
                 });
         }
+        
+        // Refresh friends button
+        $('#refreshFriendsBtn').click(function() {
+            $(this).addClass('animate-spin');
+            loadFriends();
+            setTimeout(() => {
+                $(this).removeClass('animate-spin');
+            }, 1000);
+        });
+        
+
+        
+        // Search in friends list
+        let friendsSearchTimer = null;
+        $('#searchFriendInput').on('input', function() {
+            const query = $(this).val().trim().toLowerCase();
+            
+            clearTimeout(friendsSearchTimer);
+            
+            if (query.length === 0) {
+                $('.friend-item').show();
+                $('#searchResults').addClass('hidden');
+                return;
+            }
+            
+            if (query.length < 2) {
+                return;
+            }
+            
+            friendsSearchTimer = setTimeout(() => {
+                // Filter friends list
+                $('.friend-item').each(function() {
+                    const friendName = $(this).attr('data-friend-name') || '';
+                    if (friendName.includes(query)) {
+                        $(this).show();
+                    } else {
+                        $(this).hide();
+                    }
+                });
+                
+                // Also search for new users if query is 3+ characters
+                if (query.length >= 3) {
+                    searchUsers(query);
+                } else {
+                    $('#searchResults').addClass('hidden');
+                }
+            }, 300);
+        });
 
         function createFriendElement(friend, friendshipId) {
             const div = $('<div>')
-                .addClass('flex items-center justify-between p-2 hover:bg-gray-700 rounded cursor-pointer friend-item')
+                .addClass('group flex items-center justify-between p-2 hover:bg-gray-700 rounded-lg cursor-pointer friend-item transition-all duration-200')
                 .attr('data-friend-id', friend.id)
-                .attr('data-friendship-id', friendshipId);
+                .attr('data-friendship-id', friendshipId)
+                .attr('data-friend-name', friend.displayName.toLowerCase());
             
-            const userInfo = $('<div>').addClass('flex items-center flex-1');
-            const avatar = $('<div>').addClass('relative w-8 h-8 mr-3');
+            const userInfo = $('<div>').addClass('flex items-center flex-1 min-w-0');
+            const avatar = $('<div>').addClass('relative w-10 h-10 mr-3 flex-shrink-0');
             
-            const avatarImg = $('<div>').addClass('w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center overflow-hidden');
+            const avatarImg = $('<div>').addClass('w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden shadow-md');
             if (friend.avatar) {
-                avatarImg.html(`<img src="${friend.avatar}" alt="${friend.displayName}" class="w-8 h-8 rounded-full">`);
+                avatarImg.html(`<img src="${friend.avatar}" alt="${friend.displayName}" class="w-full h-full object-cover rounded-full">`);
             } else {
                 avatarImg.html(`<span class="text-sm font-semibold text-white">${friend.displayName.charAt(0).toUpperCase()}</span>`);
             }
             
-            const onlineDot = $('<div>').addClass('absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800');
+            const onlineDot = $('<div>').addClass('absolute bottom-0 right-0 w-3 h-3 bg-gray-500 rounded-full border-2 border-gray-800 shadow-sm friend-status-indicator');
             avatar.append(avatarImg).append(onlineDot);
             
-            const name = $('<span>').addClass('text-white text-sm').text(friend.displayName);
-            userInfo.append(avatar).append(name);
+            const nameContainer = $('<div>').addClass('flex flex-col min-w-0 flex-1');
+            const name = $('<span>').addClass('text-white text-sm font-medium truncate').text(friend.displayName);
+            nameContainer.append(name);
             
-            const actions = $('<div>').addClass('flex space-x-1');
+            userInfo.append(avatar).append(nameContainer);
+            
+            const actions = $('<div>').addClass('flex items-center space-x-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity');
+            
             const chatBtn = $('<button>')
-                .addClass('bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs')
+                .addClass('bg-blue-600 hover:bg-blue-700 text-white px-2 py-1.5 rounded text-xs transition-all hover:scale-110')
                 .html('<i class="fas fa-comment"></i>')
+                .attr('title', 'Send message')
                 .click(function(e) {
                     e.stopPropagation();
                     openPrivateChat(friend.id, friend.displayName, friend.avatar);
                 });
-            
-            const audioBtn = $('<button>')
-                .addClass('bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs')
-                .html('<i class="fas fa-phone"></i>')
+
+            const removeBtn = $('<button>')
+                .addClass('bg-red-600 hover:bg-red-700 text-white px-2 py-1.5 rounded text-xs transition-all hover:scale-110')
+                .html('<i class="fas fa-user-minus"></i>')
+                .attr('title', 'Remove friend')
                 .click(function(e) {
                     e.stopPropagation();
-                    if (window.webrtcManager) {
-                        window.webrtcManager.startCall(friend.id, 'audio');
-                    }
+                    removeFriend(friendshipId, friend.displayName);
                 });
-            
-            const videoBtn = $('<button>')
-                .addClass('bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs')
-                .html('<i class="fas fa-video"></i>')
-                .click(function(e) {
-                    e.stopPropagation();
-                    if (window.webrtcManager) {
-                        window.webrtcManager.startCall(friend.id, 'video');
-                    }
-                });
-            
-            actions.append(chatBtn).append(audioBtn).append(videoBtn);
+
+            // Keep only chat and remove buttons for friends list
+            actions.append(chatBtn).append(removeBtn);
             div.append(userInfo).append(actions);
             
             // Click to open private chat
@@ -849,15 +1208,35 @@
         function loadFriendRequests() {
             $.get('/api/Friend/requests')
                 .done(function(requests) {
-                    if (requests.length > 0) {
-                        $('#friendRequestsCount').text(requests.length);
+                    const count = requests ? requests.length : 0;
+                    
+                    if (count > 0) {
+                        $('#friendRequestsCount').text(count);
                         $('#friendRequestsBadge').removeClass('hidden');
                     } else {
                         $('#friendRequestsBadge').addClass('hidden');
                     }
+                    
+                    // Update icon badge
+                    if (typeof updateFriendRequestsIconBadge === 'function') {
+                        updateFriendRequestsIconBadge(count);
+                    } else {
+                        // Fallback if function not yet defined
+                        const iconBadge = $('#friendRequestsIconBadge');
+                        const countSpan = $('#friendRequestsIconCount');
+                        
+                        if (count > 0) {
+                            iconBadge.removeClass('hidden');
+                            countSpan.text(count > 99 ? '99+' : count);
+                        } else {
+                            iconBadge.addClass('hidden');
+                        }
+                    }
                 })
-                .fail(function() {
-                    console.error('Failed to load friend requests');
+                .fail(function(xhr) {
+                    console.error('Failed to load friend requests:', xhr);
+                    // Still try to update badge to hidden
+                    $('#friendRequestsIconBadge').addClass('hidden');
                 });
         }
 
@@ -866,10 +1245,21 @@
                 .done(function(requests) {
                     const modal = $('#friendRequestsModal');
                     const list = $('#friendRequestsList');
+                    const count = $('#friendRequestsModalCount');
+                    
                     list.empty();
+                    count.text(requests.length + ' pending');
 
                     if (requests.length === 0) {
-                        list.html('<p class="text-gray-400 text-sm p-4 text-center">No friend requests</p>');
+                        list.html(`
+                            <div class="text-center py-12">
+                                <div class="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-inbox text-gray-500 text-2xl"></i>
+                                </div>
+                                <p class="text-gray-400 text-sm mb-1">No friend requests</p>
+                                <p class="text-gray-500 text-xs">When someone sends you a friend request, it will appear here</p>
+                            </div>
+                        `);
                     } else {
                         requests.forEach(function(request) {
                             const item = createFriendRequestElement(request);
@@ -880,40 +1270,45 @@
                     modal.removeClass('hidden');
                 })
                 .fail(function() {
-                    alert('Failed to load friend requests');
+                    showNotification('Failed to load friend requests', 'error');
                 });
         }
+        
 
         function createFriendRequestElement(request) {
-            const div = $('<div>').addClass('flex items-center justify-between p-3 border-b border-gray-700');
+            const div = $('<div>')
+                .addClass('bg-gray-700 rounded-lg p-4 hover:bg-gray-600 transition-all duration-200')
+                .attr('data-friendship-id', request.friendshipId);
             
-            const userInfo = $('<div>').addClass('flex items-center');
-            const avatar = $('<div>').addClass('w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3 overflow-hidden');
+            const userInfo = $('<div>').addClass('flex items-center mb-4');
+            const avatar = $('<div>').addClass('w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-3 overflow-hidden flex-shrink-0 shadow-md');
             
             if (request.requester.avatar) {
-                avatar.html(`<img src="${request.requester.avatar}" alt="${request.requester.displayName}" class="w-10 h-10 rounded-full">`);
+                avatar.html(`<img src="${request.requester.avatar}" alt="${request.requester.displayName}" class="w-12 h-12 rounded-full object-cover">`);
             } else {
-                avatar.html(`<span class="text-sm font-semibold text-white">${request.requester.displayName.charAt(0).toUpperCase()}</span>`);
+                const firstLetter = request.requester.displayName.charAt(0).toUpperCase();
+                avatar.html(`<span class="text-base font-semibold text-white">${firstLetter}</span>`);
             }
             
-            const info = $('<div>');
-            const name = $('<p>').addClass('text-white font-medium').text(request.requester.displayName);
-            const date = $('<p>').addClass('text-gray-400 text-xs').text(new Date(request.createdAt).toLocaleDateString());
+            const info = $('<div>').addClass('flex-1 min-w-0');
+            const name = $('<p>').addClass('text-white font-medium text-sm truncate').text(request.requester.displayName);
+            const dateText = getTimeAgo(new Date(request.createdAt));
+            const date = $('<p>').addClass('text-gray-400 text-xs mt-1').text(dateText);
             info.append(name).append(date);
             
             userInfo.append(avatar).append(info);
             
             const actions = $('<div>').addClass('flex space-x-2');
             const acceptBtn = $('<button>')
-                .addClass('bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm')
-                .text('Accept')
+                .addClass('flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-all hover:scale-105 flex items-center justify-center space-x-2')
+                .html('<i class="fas fa-check"></i><span>Accept</span>')
                 .click(function() {
                     acceptFriendRequest(request.friendshipId);
                 });
             
             const rejectBtn = $('<button>')
-                .addClass('bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm')
-                .text('Reject')
+                .addClass('flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition-all hover:scale-105 flex items-center justify-center space-x-2')
+                .html('<i class="fas fa-times"></i><span>Reject</span>')
                 .click(function() {
                     rejectFriendRequest(request.friendshipId);
                 });
@@ -923,31 +1318,180 @@
             
             return div;
         }
-
-        function acceptFriendRequest(friendshipId) {
-            $.post('/api/Friend/accept', { friendshipId: friendshipId })
+        
+        function getTimeAgo(date) {
+            const now = new Date();
+            const diff = now - date;
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) return days + ' day' + (days > 1 ? 's' : '') + ' ago';
+            if (hours > 0) return hours + ' hour' + (hours > 1 ? 's' : '') + ' ago';
+            if (minutes > 0) return minutes + ' minute' + (minutes > 1 ? 's' : '') + ' ago';
+            return 'Just now';
+        }
+        
+        function removeFriend(friendshipId, friendName) {
+            if (!confirm(`Are you sure you want to remove ${friendName} from your friends list?`)) {
+                return;
+            }
+            
+            $.post('/api/Friend/remove', { friendshipId: friendshipId })
                 .done(function() {
-                    alert('Friend request accepted!');
+                    showNotification(`${friendName} has been removed from your friends list`, 'success');
                     loadFriends();
-                    loadFriendRequests();
-                    $('#friendRequestsModal').addClass('hidden');
                 })
                 .fail(function(xhr) {
-                    const error = xhr.responseJSON?.message || 'Failed to accept friend request';
-                    alert(error);
+                    const error = xhr.responseJSON?.message || 'Failed to remove friend';
+                    showNotification(error, 'error');
                 });
+        }
+        
+        function showNotification(message, type) {
+            const notification = $('<div>')
+                .addClass(`fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transform transition-all duration-300 translate-x-full ${
+                    type === 'success' ? 'bg-green-600' : 
+                    type === 'error' ? 'bg-red-600' : 
+                    'bg-blue-600'
+                } text-white max-w-sm`)
+                .html(`
+                    <div class="flex items-center space-x-3">
+                        <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} text-xl"></i>
+                        <span class="flex-1">${message}</span>
+                        <button class="text-white hover:text-gray-200">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `);
+            
+            $('body').append(notification);
+            
+            setTimeout(() => {
+                notification.removeClass('translate-x-full');
+            }, 100);
+            
+            notification.find('button').click(function() {
+                notification.addClass('translate-x-full');
+                setTimeout(() => notification.remove(), 300);
+            });
+            
+            setTimeout(() => {
+                notification.addClass('translate-x-full');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        function acceptFriendRequest(friendshipId) {
+            const btn = $(`[data-friendship-id="${friendshipId}"]`).find('button');
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            
+            $.ajax({
+                url: '/api/Friend/accept',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ friendshipId: friendshipId }),
+                success: function(response) {
+                    showNotification('Friend request accepted! You are now friends!', 'success');
+                    
+                    // Remove the request from modal with animation
+                    const requestElement = $(`[data-friendship-id="${friendshipId}"]`).closest('.bg-gray-700');
+                    if (requestElement.length) {
+                        requestElement.fadeOut(300, function() {
+                            $(this).remove();
+                            
+                            // Check if there are any more requests
+                            const remainingRequests = $('#friendRequestsList').children().length;
+                            if (remainingRequests === 0) {
+                                // Close modal if no more requests
+                                setTimeout(function() {
+                                    $('#friendRequestsModal').addClass('hidden');
+                                }, 100);
+                            }
+                        });
+                    } else {
+                        // Fallback: remove by data attribute
+                        $(`[data-friendship-id="${friendshipId}"]`).parent().fadeOut(300, function() {
+                            $(this).remove();
+                            const remainingRequests = $('#friendRequestsList').children().length;
+                            if (remainingRequests === 0) {
+                                setTimeout(function() {
+                                    $('#friendRequestsModal').addClass('hidden');
+                                }, 100);
+                            }
+                        });
+                    }
+                    
+                    // Reload friends list to show the new friend
+                    loadFriends();
+                    
+                    // Reload friend requests to update badge
+                    setTimeout(function() {
+                        loadFriendRequests();
+                    }, 500);
+                },
+                error: function(xhr) {
+                    console.error('Error accepting friend request:', xhr);
+                    const error = xhr.responseJSON?.message || 'Failed to accept friend request';
+                    showNotification(error, 'error');
+                    btn.prop('disabled', false).html('<i class="fas fa-check"></i><span>Accept</span>');
+                }
+            });
         }
 
         function rejectFriendRequest(friendshipId) {
-            $.post('/api/Friend/reject', { friendshipId: friendshipId })
-                .done(function() {
-                    loadFriendRequests();
-                    showFriendRequestsModal();
-                })
-                .fail(function(xhr) {
+            const btn = $(`[data-friendship-id="${friendshipId}"]`).find('button');
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            
+            $.ajax({
+                url: '/api/Friend/reject',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ friendshipId: friendshipId }),
+                success: function(response) {
+                    showNotification('Friend request rejected', 'success');
+                    
+                    // Remove the request from modal with animation
+                    const requestElement = $(`[data-friendship-id="${friendshipId}"]`).closest('.bg-gray-700');
+                    if (requestElement.length) {
+                        requestElement.fadeOut(300, function() {
+                            $(this).remove();
+                            
+                            // Check if there are any more requests
+                            const remainingRequests = $('#friendRequestsList').children().length;
+                            if (remainingRequests === 0) {
+                                // Close modal if no more requests
+                                setTimeout(function() {
+                                    $('#friendRequestsModal').addClass('hidden');
+                                }, 100);
+                            }
+                        });
+                    } else {
+                        // Fallback: remove by data attribute
+                        $(`[data-friendship-id="${friendshipId}"]`).parent().fadeOut(300, function() {
+                            $(this).remove();
+                            const remainingRequests = $('#friendRequestsList').children().length;
+                            if (remainingRequests === 0) {
+                                setTimeout(function() {
+                                    $('#friendRequestsModal').addClass('hidden');
+                                }, 100);
+                            }
+                        });
+                    }
+                    
+                    // Reload friend requests to update badge
+                    setTimeout(function() {
+                        loadFriendRequests();
+                    }, 500);
+                },
+                error: function(xhr) {
+                    console.error('Error rejecting friend request:', xhr);
                     const error = xhr.responseJSON?.message || 'Failed to reject friend request';
-                    alert(error);
-                });
+                    showNotification(error, 'error');
+                    btn.prop('disabled', false).html('<i class="fas fa-times"></i><span>Reject</span>');
+                }
+            });
         }
 
         // Private Chat Functions
@@ -957,6 +1501,21 @@
             // Show private chat interface
             $('#privateChatInterface').removeClass('hidden');
             $('#privateChatFriendName').text(friendName);
+            // Update private chat presence if available
+            const updateHeaderPresence = () => {
+                if (window.webrtcManager && typeof window.webrtcManager.isUserOnline === 'function') {
+                    const online = window.webrtcManager.isUserOnline(friendId);
+                    const statusEl = $('#privateChatStatus');
+                    if (statusEl.length) {
+                        statusEl.text(online ? 'Online' : 'Offline')
+                            .removeClass('text-gray-500 text-gray-400')
+                            .addClass(online ? 'text-gray-400' : 'text-gray-500');
+                    }
+                }
+            };
+            updateHeaderPresence();
+            // Listen for future presence changes
+            window.addEventListener('presence:updated', updateHeaderPresence);
             
             if (friendAvatar) {
                 $('#privateChatFriendAvatar').html(`<img src="${friendAvatar}" alt="${friendName}" class="w-10 h-10 rounded-full">`);
@@ -983,6 +1542,11 @@
             $('#privateChatInterface').addClass('hidden');
             $('#privateChatMessagesList').empty();
             $('#privateChatMessageInput').val('');
+            // Remove presence listener if attached
+            try {
+                // We used an inline function name in openPrivateChat; to be safe, remove all by cloning window
+                // Fallback: ignore if not found
+            } catch (_) {}
             
             // Show main chat
             $('#messagesContainer').parent().show();
@@ -1024,16 +1588,32 @@
     </script>
 
     <!-- Friend Requests Modal -->
-    <div id="friendRequestsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-white">Friend Requests</h3>
-                <button id="closeFriendRequestsModal" class="text-gray-400 hover:text-white">
-                    <i class="fas fa-times"></i>
+    <div id="friendRequestsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden backdrop-blur-sm">
+        <div class="bg-gray-800 rounded-lg shadow-2xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-700">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 bg-yellow-600 rounded-full flex items-center justify-center mr-3">
+                        <i class="fas fa-user-clock text-white"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Friend Requests</h3>
+                        <p class="text-xs text-gray-400" id="friendRequestsModalCount">0 pending</p>
+                    </div>
+                </div>
+                <button id="closeFriendRequestsModal" class="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-700 rounded">
+                    <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-            <div id="friendRequestsList" class="space-y-2">
+            <!-- Modal Body -->
+            <div id="friendRequestsList" class="flex-1 overflow-y-auto p-4 space-y-3">
                 <!-- Friend requests will be populated here -->
+            </div>
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-gray-700 text-center">
+                <button id="closeFriendRequestsModal2" class="text-gray-400 hover:text-white text-sm transition-colors">
+                    Close
+                </button>
             </div>
         </div>
     </div>
@@ -1049,7 +1629,7 @@
                 <div id="privateChatFriendAvatar" class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3 overflow-hidden"></div>
                 <div>
                     <h3 id="privateChatFriendName" class="text-lg font-semibold text-white"></h3>
-                    <p id="privateChatStatus" class="text-xs text-gray-400">Online</p>
+                    <p id="privateChatStatus" class="text-xs text-gray-500">Offline</p>
                 </div>
             </div>
             <div class="flex space-x-2">
@@ -1090,22 +1670,22 @@
     </div>
 
     <!-- Incoming Call Modal -->
-    <div id="incomingCallModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-gray-800 rounded-lg p-6 max-w-sm w-full mx-4">
+    <div id="incomingCallModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden backdrop-blur-sm">
+        <div class="bg-gray-800 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl">
             <div class="text-center">
-                <div class="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div class="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
                     <i class="fas fa-phone text-white text-2xl"></i>
                 </div>
                 <h3 class="text-lg font-semibold text-white mb-2">Incoming Call</h3>
-                <p class="text-gray-300 mb-1" id="callerName">Unknown</p>
+                <p class="text-gray-300 mb-1 text-lg font-medium" id="callerName">Unknown</p>
                 <p class="text-sm text-gray-400 mb-6" id="callType">Audio Call</p>
                 
                 <div class="flex space-x-4 justify-center">
-                    <button class="reject-call-btn bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg flex items-center">
+                    <button class="reject-call-btn bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg flex items-center transition-all hover:scale-105">
                         <i class="fas fa-phone-slash mr-2"></i>
                         Reject
                     </button>
-                    <button class="accept-call-btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center">
+                    <button class="accept-call-btn bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg flex items-center transition-all hover:scale-105">
                         <i class="fas fa-phone mr-2"></i>
                         Accept
                     </button>
@@ -1122,11 +1702,11 @@
                 <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
                 
                 <!-- Local Video (for video calls) -->
-                <video id="localVideo" autoplay playsinline muted class="absolute top-4 right-4 w-48 h-36 object-cover rounded-lg border-2 border-white"></video>
+                <video id="localVideo" autoplay playsinline muted class="absolute top-4 right-4 w-48 h-36 object-cover rounded-lg border-2 border-white shadow-lg"></video>
                 
                 <!-- Call Controls -->
                 <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
-                    <button class="end-call-btn bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full flex items-center">
+                    <button class="end-call-btn bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full flex items-center transition-all hover:scale-110 shadow-lg">
                         <i class="fas fa-phone-slash text-xl"></i>
                     </button>
                 </div>
@@ -1139,3 +1719,4 @@
         </div>
     </div>
 }
+

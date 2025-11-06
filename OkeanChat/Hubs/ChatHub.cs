@@ -31,6 +31,7 @@ namespace OkeanChat.Hubs
                 var user = await _userManager.GetUserAsync(Context.User);
                 if (user != null)
                 {
+                    Console.WriteLine($"[ChatHub] JoinChannel: ConnectionId={Context.ConnectionId}, UserId={user.Id}, ChannelId={channelId}, UserName={user.UserName}");
                     var groupName = $"Channel_{channelId}";
                     await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
                     
@@ -169,6 +170,7 @@ namespace OkeanChat.Hubs
                 user.LastSeen = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
 
+                Console.WriteLine($"[ChatHub] OnConnectedAsync: ConnectionId={Context.ConnectionId}, UserId={user.Id}, UserName={username}, IsAuthenticated={Context.User?.Identity?.IsAuthenticated}");
                 // Notify all channels that a user came online
                 await NotifyUserOnline(user);
             }
@@ -179,16 +181,16 @@ namespace OkeanChat.Hubs
         {
             if (_userConnections.TryGetValue(Context.ConnectionId, out var userId))
             {
+                Console.WriteLine($"[ChatHub] OnDisconnectedAsync: ConnectionId={Context.ConnectionId}, UserId={userId}, Exception={(exception != null ? exception.Message : "none")}");
                 // Get groups from tracking before removing connection
                 HashSet<string>? userGroups = null;
                 if (_connectionGroups.TryGetValue(Context.ConnectionId, out var groups))
                 {
                     userGroups = new HashSet<string>(groups);
                 }
-                
                 _userConnections.Remove(Context.ConnectionId);
                 _connectionGroups.Remove(Context.ConnectionId);
-                
+
                 if (_connectionToUsername.TryGetValue(Context.ConnectionId, out var username))
                 {
                     _connectionToUsername.Remove(Context.ConnectionId);
@@ -207,14 +209,22 @@ namespace OkeanChat.Hubs
                         }
                     }
 
-                    // Notify all channels that user went offline
-                    if (userGroups != null)
+                    // Only broadcast offline if this was the user's last active connection
+                    var stillConnected = _userConnections.Values.Any(v => v == userId);
+                    if (!stillConnected)
                     {
-                        foreach (var group in userGroups)
+                        if (userGroups != null)
                         {
-                            // Just send UserWentOffline, client will remove the user from the list
-                            await Clients.Group(group).SendAsync("UserWentOffline", userId);
+                            foreach (var group in userGroups)
+                            {
+                                // Just send UserWentOffline, client will remove the user from the list
+                                await Clients.Group(group).SendAsync("UserWentOffline", userId);
+                            }
                         }
+                    }
+                    else
+                    {
+                        // There are other active connections for this user; do not mark offline.
                     }
                 }
             }
@@ -227,6 +237,7 @@ namespace OkeanChat.Hubs
             var caller = await _userManager.GetUserAsync(Context.User);
             if (caller != null)
             {
+                Console.WriteLine($"[ChatHub] GetOnlineUsers: ConnectionId={Context.ConnectionId}, CallerId={caller.Id}, ChannelId={channelId}");
                 await SendOnlineUsersToCaller(channelId, caller.Id);
             }
         }
@@ -234,6 +245,7 @@ namespace OkeanChat.Hubs
         private async Task SendOnlineUsersToCaller(int channelId, string excludeUserId)
         {
             var onlineUserIds = _userConnections.Values.Distinct().ToList();
+            Console.WriteLine($"[ChatHub] SendOnlineUsersToCaller: ChannelId={channelId}, Exclude={excludeUserId}, OnlineCount={onlineUserIds.Count}");
             var onlineUsers = new List<object>();
 
             foreach (var userId in onlineUserIds)
@@ -290,6 +302,7 @@ namespace OkeanChat.Hubs
 
         private async Task NotifyUserOnline(ApplicationUser user)
         {
+            Console.WriteLine($"[ChatHub] NotifyUserOnline: ConnectionId={Context.ConnectionId}, UserId={user.Id}");
             var userInfo = new
             {
                 Id = user.Id,

@@ -82,9 +82,9 @@ namespace OkeanChat.Data
         {
             // Seed Channels
             modelBuilder.Entity<Channel>().HasData(
-                new Channel { Id = 1, Name = "general", Description = "General discussion channel" },
-                new Channel { Id = 2, Name = "random", Description = "Random chat and off-topic discussions" },
-                new Channel { Id = 3, Name = "announcements", Description = "Important announcements" }
+                new Channel { Id = 1, Name = "Học bài", Description = "Bàn luận chuyện học hành" },
+                new Channel { Id = 2, Name = "Chơi game", Description = "Bàn luận chuyện chơi game" },
+                new Channel { Id = 3, Name = "Tán phét", Description = "Bàn luận chuyện tán phét" }
             );
         }
     }

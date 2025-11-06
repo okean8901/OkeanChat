@@ -185,19 +185,259 @@ html, body {
     border-color: #4b5563 !important;
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
-    .w-64 {
-        width: 16rem;
+/* Mobile menu toggle button */
+#mobileMenuToggle {
+    cursor: pointer;
+    z-index: 50;
+    transition: all 0.3s ease;
+}
+
+#mobileMenuToggle:hover {
+    background-color: #374151 !important;
+}
+
+#mobileMenuToggle:active {
+    transform: scale(0.95);
+}
+
+/* Responsive design for mobile */
+@media (max-width: 1023px) {
+    /* Mobile sidebar adjustments */
+    #sidebar {
+        width: 280px;
+        max-width: 85vw;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
-    .min-h-screen {
-        flex-direction: column;
+    /* Ensure sidebar is hidden by default on mobile */
+    #sidebar.sidebar-mobile.sidebar-hidden {
+        transform: translateX(-100%) !important;
     }
     
-    .w-64 {
+    /* Sidebar visible when opened */
+    #sidebar.sidebar-mobile.sidebar-open-class {
+        transform: translateX(0) !important;
+        display: flex !important;
+    }
+    
+    /* Ensure sidebar is always visible when opened */
+    #sidebar.sidebar-open-class {
+        z-index: 50 !important;
+    }
+    
+    /* Prevent body scroll when sidebar is open */
+    body.sidebar-open {
+        overflow: hidden;
+        position: fixed;
         width: 100%;
-        height: auto;
+    }
+    
+    /* Ensure menu toggle is visible */
+    #mobileMenuToggle {
+        display: block !important;
+    }
+    
+    /* Mobile chat area */
+    .flex-1 {
+        width: 100%;
+    }
+    
+    /* Message input adjustments */
+    #messageInput {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    /* Channel header adjustments */
+    .bg-gray-800.border-b {
+        padding: 1rem;
+    }
+    
+    /* Messages container padding */
+    #messagesContainer {
+        padding: 1rem;
+    }
+}
+
+/* Desktop - sidebar always visible */
+@media (min-width: 1024px) {
+    #sidebar {
+        transform: translateX(0) !important;
+        position: static !important;
+    }
+}
+    
+    /* Message input adjustments */
+    #messageInput {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    /* Channel header adjustments */
+    .bg-gray-800.border-b {
+        padding: 1rem;
+    }
+    
+    /* Messages container padding */
+    #messagesContainer {
+        padding: 1rem;
+    }
+    
+    /* Typography adjustments */
+    h1, h2, h3 {
+        font-size: 1.25rem;
+    }
+    
+    /* Button sizes */
+    button {
+        min-height: 44px; /* Better touch targets */
+    }
+    
+    /* Modal adjustments */
+    .modal-dialog {
+        margin: 1rem;
+        max-width: calc(100% - 2rem);
+    }
+    
+    /* Friend list adjustments */
+    #friendsList {
+        max-height: 200px;
+    }
+    
+    #onlineUsersList {
+        max-height: 200px;
+    }
+    
+    /* Avatar sizes on mobile */
+    .w-10.h-10 {
+        width: 2rem;
+        height: 2rem;
+    }
+    
+    .w-8.h-8 {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+    
+    /* Private chat interface */
+    #privateChatInterface {
+        padding-top: 3.5rem;
+    }
+    
+    /* Private chat header */
+    #privateChatInterface .bg-gray-800 {
+        padding: 0.75rem 1rem;
+    }
+    
+    /* Private chat buttons */
+    #privateChatAudioBtn,
+    #privateChatVideoBtn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    /* Call interface adjustments */
+    #callInterface {
+        padding: 0.5rem;
+    }
+    
+    #localVideo {
+        width: 100px;
+        height: 75px;
+        top: 0.5rem;
+        right: 0.5rem;
+    }
+}
+
+/* Extra small devices */
+@media (max-width: 640px) {
+    /* Smaller padding */
+    .p-4, .p-6 {
+        padding: 1rem;
+    }
+    
+    /* Smaller text */
+    .text-xl {
+        font-size: 1.125rem;
+    }
+    
+    .text-lg {
+        font-size: 1rem;
+    }
+    
+    /* Compact buttons */
+    button {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    /* Message spacing */
+    .message {
+        margin-bottom: 0.75rem;
+    }
+    
+    /* Channel header */
+    .px-6 {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    /* Sidebar width on very small screens */
+    #sidebar {
+        width: 260px;
+    }
+}
+
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 1023px) {
+    #sidebar {
+        width: 300px;
+    }
+}
+
+/* Touch-friendly adjustments for mobile */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets */
+    a, button {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* Better spacing for touch */
+    .space-y-1 > * + * {
+        margin-top: 0.5rem;
+    }
+    
+    /* Prevent text selection on buttons */
+    button {
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+    }
+    
+    /* Input fields - prevent zoom on focus (iOS) */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    textarea {
+        font-size: 16px;
+    }
+}
+
+/* Landscape orientation adjustments */
+@media (max-width: 1023px) and (orientation: landscape) {
+    /* Reduce padding in landscape */
+    .p-4 {
+        padding: 0.75rem;
+    }
+    
+    /* Smaller header */
+    .bg-gray-800.border-b {
+        padding: 0.75rem 1rem;
+    }
+    
+    /* Compact friend list */
+    #friendsList,
+    #onlineUsersList {
+        max-height: 150px;
     }
 }
 
@@ -678,8 +918,23 @@ html, body {
     animation: spin 1s linear infinite;
 }
 
-/* Responsive design for mobile */
-@media (max-width: 768px) {
+/* Mobile avatar adjustments */
+@media (max-width: 1023px) {
+    .nav-avatar {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .message-avatar {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .profile-avatar {
+        width: 64px;
+        height: 64px;
+    }
+    
     .local-video {
         width: 120px;
         height: 90px;
@@ -695,22 +950,6 @@ html, body {
     
     #incomingCallModal .bg-gray-800 {
         margin: 16px;
-    }
-    
-    /* Mobile avatar adjustments */
-    .nav-avatar {
-        width: 28px;
-        height: 28px;
-    }
-    
-    .message-avatar {
-        width: 36px;
-        height: 36px;
-    }
-    
-    .profile-avatar {
-        width: 64px;
-        height: 64px;
     }
 }
 
@@ -791,6 +1030,269 @@ html, body {
     background: linear-gradient(135deg, #3b82f6, #1d4ed8);
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
     transition: all 0.3s ease;
+}
+
+/* Friends List Improvements */
+.friend-item {
+    transition: all 0.2s ease;
+}
+
+.friend-item:hover {
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.friend-status-indicator {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Search Results */
+#searchResults {
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    background: #1f2937;
+}
+
+#searchResults .bg-gray-700 {
+    transition: all 0.2s ease;
+}
+
+#searchResults .bg-gray-700:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Friend Requests Modal */
+#friendRequestsModal {
+    animation: fadeIn 0.3s ease;
+}
+
+#friendRequestsModal .bg-gray-800 {
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Notification animations */
+.notification {
+    animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Loading states */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Filter buttons */
+.filter-btn {
+    transition: all 0.2s ease;
+}
+
+.filter-btn.active-filter {
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+/* Empty state */
+.empty-state {
+    padding: 2rem;
+    text-align: center;
+}
+
+.empty-state-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1rem;
+    background: #374151;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 1.5rem;
+}
+
+/* Friend Requests Icon Badge */
+#friendRequestsIconBadge {
+    position: relative;
+}
+
+#friendRequestsIconCount {
+    animation: pulse-badge 2s infinite;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    min-width: 20px;
+    padding: 0 4px;
+}
+
+@keyframes pulse-badge {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* Facebook-style Add Friend Button */
+.add-friend-btn {
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.add-friend-btn:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+/* Facebook-style Added Button */
+.added-friend-btn {
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+.added-friend-btn:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+.added-friend-btn i {
+    color: #10b981;
+}
+
+/* Call Interface Styles */
+#callInterface {
+    z-index: 9999;
+}
+
+#callInterface video {
+    background: #111827;
+}
+
+#localVideo {
+    z-index: 10;
+}
+
+#remoteVideo {
+    z-index: 1;
+}
+
+.audio-placeholder {
+    z-index: 2;
+}
+
+#incomingCallModal {
+    z-index: 9998;
+    animation: fadeIn 0.3s ease;
+}
+
+#incomingCallModal .bg-blue-500 {
+    animation: pulse-ring 2s infinite;
+}
+
+@keyframes pulse-ring {
+    0% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+}
+
+.end-call-btn:hover {
+    transform: scale(1.1);
+}
+
+.accept-call-btn:hover,
+.reject-call-btn:hover {
+    transform: scale(1.05);
+}
+
+/* Responsive improvements for friends section */
+@media (max-width: 1023px) {
+    #friendsList {
+        max-height: 200px;
+    }
+    
+    .friend-item {
+        padding: 0.75rem;
+    }
+    
+    .friend-item .group-hover\:opacity-100 {
+        opacity: 1 !important;
+    }
+    
+    /* Always show action buttons on mobile */
+    .friend-item .flex.items-center.space-x-1 {
+        opacity: 1 !important;
+    }
+    
+    /* Search input improvements: use markup pattern instead of forced CSS overrides */
+    
+    #friendRequestsModal .bg-gray-800 {
+        max-height: 90vh;
+        margin: 1rem;
+    }
+    
+    #friendRequestsIconBadge {
+        margin-left: 0.5rem;
+    }
+    
+    #callInterface {
+        padding: 0.5rem;
+    }
+    
+    #localVideo {
+        width: 120px;
+        height: 90px;
+        top: 1rem;
+        right: 1rem;
+    }
+    
+    #incomingCallModal {
+        padding: 1rem;
+    }
 }
 
 .avatar-bordered img {
