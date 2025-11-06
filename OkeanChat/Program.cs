@@ -53,6 +53,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 // Add SignalR
 builder.Services.AddSignalR();
 
+// Add Online User Service (Singleton for shared state across hubs)
+builder.Services.AddSingleton<OkeanChat.Services.OnlineUserService>();
+
 // Add CORS
 builder.Services.AddCors(options =>
 {
@@ -96,6 +99,7 @@ app.UseAuthorization();
 // Map SignalR Hubs
 app.MapHub<ChatHub>("/chatHub");
 app.MapHub<WebRTCHub>("/webrtcHub");
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.MapControllerRoute(
     name: "default",

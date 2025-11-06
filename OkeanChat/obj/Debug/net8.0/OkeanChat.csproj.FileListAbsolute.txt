@@ -276,7 +276,6 @@ C:\CodeC#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\staticwebassets.build.j
 C:\CodeC#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\staticwebassets.build.json.cache
 C:\CodeC#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\staticwebassets.development.json
 C:\CodeC#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\staticwebassets.build.endpoints.json
-C:\CodeC#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt
 C:\CodeC#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\OkeanChat.csproj.Up2Date
 C:\CodeC#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\OkeanChat.dll
 C:\CodeC#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\refint\OkeanChat.dll

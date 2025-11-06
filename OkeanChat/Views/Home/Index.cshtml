@@ -335,8 +335,60 @@
         <script>
             let currentUserId = '@((await UserManager.GetUserAsync(User))?.Id ?? "")';
             let friendSearchTimer = null;
+            let chatHubConnection = null;
+
+            // Initialize SignalR connection for online status
+            function initializeSignalR() {
+                chatHubConnection = new signalR.HubConnectionBuilder()
+                    .withUrl("/chatHub")
+                    .withAutomaticReconnect()
+                    .build();
+
+                chatHubConnection.start().then(function() {
+                    console.log("[Index] SignalR Connected for online status");
+                }).catch(function(err) {
+                    console.error("[Index] SignalR Connection Error: " + err.toString());
+                });
+
+                // Listen for friend online status updates
+                chatHubConnection.on("FriendOnline", function(userId) {
+                    console.log("[Index] FriendOnline:", userId);
+                    updateFriendOnlineStatus(userId, true);
+                });
+
+                chatHubConnection.on("FriendOffline", function(userId) {
+                    console.log("[Index] FriendOffline:", userId);
+                    updateFriendOnlineStatus(userId, false);
+                });
+
+                chatHubConnection.on("FriendOnlineStatus", function(friendId, isOnline) {
+                    console.log("[Index] FriendOnlineStatus:", friendId, isOnline);
+                    updateFriendOnlineStatus(friendId, isOnline);
+                });
+            }
+
+            // Update friend online status in UI
+            function updateFriendOnlineStatus(userId, isOnline) {
+                const friendItem = $(`.friend-item[data-friend-id="${userId}"]`);
+                if (friendItem.length === 0) return;
+
+                const statusIndicator = friendItem.find('.friend-status-indicator');
+                const statusText = friendItem.find('.friend-status-text');
+
+                if (isOnline) {
+                    statusIndicator.removeClass('bg-gray-500').addClass('bg-green-500');
+                    statusText.removeClass('text-gray-500').addClass('text-green-400').text('Online');
+                } else {
+                    statusIndicator.removeClass('bg-green-500').addClass('bg-gray-500');
+                    statusText.removeClass('text-green-400').addClass('text-gray-500').text('Offline');
+                }
+            }
 
             $(document).ready(function() {
+                // Initialize SignalR
+                if (currentUserId) {
+                    initializeSignalR();
+                }
                 // Close sidebar when clicking a link on mobile (using global functions)
                 $('#sidebar a[href]').on('click', function() {
                     if ($(window).width() < 1024 && window.closeSidebar) {
@@ -696,9 +748,13 @@
                             friendsList.append(friendElement);
                         });
 
-                        // After rendering, request a fresh presence sync
-                        if (window.webrtcManager && typeof window.webrtcManager.getOnlineUsers === 'function') {
-                            try { window.webrtcManager.getOnlineUsers(); } catch (e) { /* no-op */ }
+                        // Request online status for all friends after loading
+                        if (chatHubConnection && chatHubConnection.state === signalR.HubConnectionState.Connected) {
+                            friendships.forEach(function(friendship) {
+                                chatHubConnection.invoke("GetFriendOnlineStatus", friendship.friend.id).catch(function(err) {
+                                    console.error("[Index] Error getting friend online status:", err);
+                                });
+                            });
                         }
                     })
                     .fail(function() {
@@ -729,12 +785,17 @@
                     avatarImg.html(`<span class="text-sm font-semibold text-white">${friend.displayName.charAt(0).toUpperCase()}</span>`);
                 }
                 
-                const onlineDot = $('<div>').addClass('absolute bottom-0 right-0 w-3 h-3 bg-gray-500 rounded-full border-2 border-gray-800 shadow-sm friend-status-indicator');
+                // Set initial online status from API response
+                const isOnline = friend.isOnline === true || friend.isOnline === 'true';
+                const onlineDotClass = isOnline ? 'bg-green-500' : 'bg-gray-500';
+                const onlineDot = $('<div>').addClass(`absolute bottom-0 right-0 w-3 h-3 ${onlineDotClass} rounded-full border-2 border-gray-800 shadow-sm friend-status-indicator`);
                 avatar.append(avatarImg).append(onlineDot);
                 
                 const nameContainer = $('<div>').addClass('flex flex-col min-w-0 flex-1');
                 const name = $('<span>').addClass('text-white text-sm font-medium truncate').text(friend.displayName);
-                const status = $('<span>').addClass('friend-status-text text-gray-500 text-xs').text('Offline');
+                const statusClass = isOnline ? 'text-green-400' : 'text-gray-500';
+                const statusText = isOnline ? 'Online' : 'Offline';
+                const status = $('<span>').addClass(`friend-status-text ${statusClass} text-xs`).text(statusText);
                 nameContainer.append(name).append(status);
                 
                 userInfo.append(avatar).append(nameContainer);

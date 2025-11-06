@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using OkeanChat.Data;
 using OkeanChat.Models;
 using Microsoft.EntityFrameworkCore;
+using OkeanChat.Services;
 
 namespace OkeanChat.Controllers
 {
@@ -14,11 +15,13 @@ namespace OkeanChat.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly OnlineUserService _onlineUserService;
 
-        public FriendController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public FriendController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, OnlineUserService onlineUserService)
         {
             _context = context;
             _userManager = userManager;
+            _onlineUserService = onlineUserService;
         }
 
         [HttpGet("search")]
@@ -210,28 +213,29 @@ namespace OkeanChat.Controllers
                 .Include(f => f.Addressee)
                 .Where(f => (f.RequesterId == currentUser.Id || f.AddresseeId == currentUser.Id) &&
                            f.Status == FriendshipStatus.Accepted)
-                .Select(f => new
-                {
-                    FriendshipId = f.Id,
-                    Friend = f.RequesterId == currentUser.Id 
-                        ? new
-                        {
-                            Id = f.Addressee.Id,
-                            UserName = f.Addressee.UserName,
-                            DisplayName = f.Addressee.DisplayName ?? f.Addressee.UserName,
-                            Avatar = f.Addressee.Avatar
-                        }
-                        : new
-                        {
-                            Id = f.Requester.Id,
-                            UserName = f.Requester.UserName,
-                            DisplayName = f.Requester.DisplayName ?? f.Requester.UserName,
-                            Avatar = f.Requester.Avatar
-                        }
-                })
                 .ToListAsync();
 
-            return Ok(friendships);
+            var friendsList = friendships.Select(f =>
+            {
+                var friend = f.RequesterId == currentUser.Id ? f.Addressee : f.Requester;
+                var isOnline = _onlineUserService.IsUserOnline(friend.Id);
+                
+                return new
+                {
+                    FriendshipId = f.Id,
+                    Friend = new
+                    {
+                        Id = friend.Id,
+                        UserName = friend.UserName,
+                        DisplayName = friend.DisplayName ?? friend.UserName,
+                        Avatar = friend.Avatar,
+                        IsOnline = isOnline,
+                        LastSeen = friend.LastSeen
+                    }
+                };
+            }).ToList();
+
+            return Ok(friendsList);
         }
 
         [HttpGet("requests")]

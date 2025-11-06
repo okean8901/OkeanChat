@@ -4,6 +4,7 @@ using OkeanChat.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using OkeanChat.Services;
 
 namespace OkeanChat.Hubs
 {
@@ -12,15 +13,18 @@ namespace OkeanChat.Hubs
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly OnlineUserService _onlineUserService;
         private static readonly Dictionary<string, string> _userConnections = new(); // ConnectionId -> UserId
         private static readonly Dictionary<string, string> _connectionToUsername = new(); // ConnectionId -> Username
         private static readonly Dictionary<string, HashSet<string>> _typingUsers = new();
         private static readonly Dictionary<string, HashSet<string>> _connectionGroups = new(); // ConnectionId -> Groups
+        private static readonly Dictionary<string, HashSet<string>> _privateChatConnections = new(); // UserId -> Set of friend UserIds they're chatting with
 
-        public ChatHub(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public ChatHub(ApplicationDbContext context, UserManager<ApplicationUser> userManager, OnlineUserService onlineUserService)
         {
             _context = context;
             _userManager = userManager;
+            _onlineUserService = onlineUserService;
         }
 
         public async Task JoinChannel(int channelId)
@@ -166,13 +170,20 @@ namespace OkeanChat.Hubs
                 _userConnections[Context.ConnectionId] = user.Id;
                 _connectionToUsername[Context.ConnectionId] = username;
 
+                // Add to online service
+                _onlineUserService.AddConnection(user.Id, Context.ConnectionId);
+
                 // Update last seen
                 user.LastSeen = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
 
                 Console.WriteLine($"[ChatHub] OnConnectedAsync: ConnectionId={Context.ConnectionId}, UserId={user.Id}, UserName={username}, IsAuthenticated={Context.User?.Identity?.IsAuthenticated}");
+                
                 // Notify all channels that a user came online
                 await NotifyUserOnline(user);
+                
+                // Notify friends that user is online
+                await NotifyFriendsUserOnline(user.Id);
             }
             await base.OnConnectedAsync();
         }
@@ -182,6 +193,10 @@ namespace OkeanChat.Hubs
             if (_userConnections.TryGetValue(Context.ConnectionId, out var userId))
             {
                 Console.WriteLine($"[ChatHub] OnDisconnectedAsync: ConnectionId={Context.ConnectionId}, UserId={userId}, Exception={(exception != null ? exception.Message : "none")}");
+                
+                // Remove from online service
+                _onlineUserService.RemoveConnection(userId, Context.ConnectionId);
+                
                 // Get groups from tracking before removing connection
                 HashSet<string>? userGroups = null;
                 if (_connectionGroups.TryGetValue(Context.ConnectionId, out var groups))
@@ -210,7 +225,7 @@ namespace OkeanChat.Hubs
                     }
 
                     // Only broadcast offline if this was the user's last active connection
-                    var stillConnected = _userConnections.Values.Any(v => v == userId);
+                    var stillConnected = _onlineUserService.IsUserOnline(userId);
                     if (!stillConnected)
                     {
                         if (userGroups != null)
@@ -221,6 +236,9 @@ namespace OkeanChat.Hubs
                                 await Clients.Group(group).SendAsync("UserWentOffline", userId);
                             }
                         }
+                        
+                        // Notify friends that user went offline
+                        await NotifyFriendsUserOffline(userId);
                     }
                     else
                     {
@@ -244,7 +262,7 @@ namespace OkeanChat.Hubs
 
         private async Task SendOnlineUsersToCaller(int channelId, string excludeUserId)
         {
-            var onlineUserIds = _userConnections.Values.Distinct().ToList();
+            var onlineUserIds = _onlineUserService.GetAllOnlineUserIds();
             Console.WriteLine($"[ChatHub] SendOnlineUsersToCaller: ChannelId={channelId}, Exclude={excludeUserId}, OnlineCount={onlineUserIds.Count}");
             var onlineUsers = new List<object>();
 
@@ -262,7 +280,8 @@ namespace OkeanChat.Hubs
                         Id = user.Id,
                         UserName = user.UserName,
                         DisplayName = user.DisplayName ?? user.UserName,
-                        Avatar = user.Avatar
+                        Avatar = user.Avatar,
+                        IsOnline = true
                     });
                 }
             }
@@ -274,7 +293,7 @@ namespace OkeanChat.Hubs
         private async Task SendOnlineUsersToGroup(int channelId, string? excludeUserId = null)
         {
             var groupName = $"Channel_{channelId}";
-            var onlineUserIds = _userConnections.Values.Distinct().ToList();
+            var onlineUserIds = _onlineUserService.GetAllOnlineUserIds();
             var onlineUsers = new List<object>();
 
             foreach (var userId in onlineUserIds)
@@ -291,7 +310,8 @@ namespace OkeanChat.Hubs
                         Id = user.Id,
                         UserName = user.UserName,
                         DisplayName = user.DisplayName ?? user.UserName,
-                        Avatar = user.Avatar
+                        Avatar = user.Avatar,
+                        IsOnline = true
                     });
                 }
             }
@@ -318,6 +338,110 @@ namespace OkeanChat.Hubs
                 {
                     await Clients.Group(group).SendAsync("UserCameOnline", userInfo);
                 }
+            }
+        }
+
+        // Notify friends when user comes online
+        private async Task NotifyFriendsUserOnline(string userId)
+        {
+            var friendships = await _context.Friendships
+                .Where(f => 
+                    (f.RequesterId == userId || f.AddresseeId == userId) &&
+                    f.Status == FriendshipStatus.Accepted)
+                .ToListAsync();
+
+            var friendIds = friendships
+                .Select(f => f.RequesterId == userId ? f.AddresseeId : f.RequesterId)
+                .ToList();
+
+            foreach (var friendId in friendIds)
+            {
+                var friendConnections = _onlineUserService.GetUserConnections(friendId);
+                foreach (var connectionId in friendConnections)
+                {
+                    await Clients.Client(connectionId).SendAsync("FriendOnline", userId);
+                }
+            }
+        }
+
+        // Notify friends when user goes offline
+        private async Task NotifyFriendsUserOffline(string userId)
+        {
+            var friendships = await _context.Friendships
+                .Where(f => 
+                    (f.RequesterId == userId || f.AddresseeId == userId) &&
+                    f.Status == FriendshipStatus.Accepted)
+                .ToListAsync();
+
+            var friendIds = friendships
+                .Select(f => f.RequesterId == userId ? f.AddresseeId : f.RequesterId)
+                .ToList();
+
+            foreach (var friendId in friendIds)
+            {
+                var friendConnections = _onlineUserService.GetUserConnections(friendId);
+                foreach (var connectionId in friendConnections)
+                {
+                    await Clients.Client(connectionId).SendAsync("FriendOffline", userId);
+                }
+            }
+        }
+
+        // Get friend online status for private chat
+        public async Task GetFriendOnlineStatus(string friendId)
+        {
+            var currentUser = await _userManager.GetUserAsync(Context.User);
+            if (currentUser == null) return;
+
+            // Check if users are friends
+            var friendship = await _context.Friendships
+                .FirstOrDefaultAsync(f => 
+                    ((f.RequesterId == currentUser.Id && f.AddresseeId == friendId) ||
+                     (f.RequesterId == friendId && f.AddresseeId == currentUser.Id)) &&
+                    f.Status == FriendshipStatus.Accepted);
+
+            if (friendship == null) return;
+
+            var isOnline = _onlineUserService.IsUserOnline(friendId);
+            await Clients.Caller.SendAsync("FriendOnlineStatus", friendId, isOnline);
+        }
+
+        // Join private chat room
+        public async Task JoinPrivateChat(string friendId)
+        {
+            var currentUser = await _userManager.GetUserAsync(Context.User);
+            if (currentUser == null) return;
+
+            // Check if users are friends
+            var friendship = await _context.Friendships
+                .FirstOrDefaultAsync(f => 
+                    ((f.RequesterId == currentUser.Id && f.AddresseeId == friendId) ||
+                     (f.RequesterId == friendId && f.AddresseeId == currentUser.Id)) &&
+                    f.Status == FriendshipStatus.Accepted);
+
+            if (friendship == null) return;
+
+            // Track private chat connection
+            if (!_privateChatConnections.ContainsKey(currentUser.Id))
+            {
+                _privateChatConnections[currentUser.Id] = new HashSet<string>();
+            }
+            _privateChatConnections[currentUser.Id].Add(friendId);
+
+            // Send online status to caller
+            var isOnline = _onlineUserService.IsUserOnline(friendId);
+            await Clients.Caller.SendAsync("FriendOnlineStatus", friendId, isOnline);
+        }
+
+        // Leave private chat room
+        public async Task LeavePrivateChat(string friendId)
+        {
+            var currentUser = await _userManager.GetUserAsync(Context.User);
+            if (currentUser == null) return;
+
+            if (_privateChatConnections.ContainsKey(currentUser.Id))
+            {
+                _privateChatConnections[currentUser.Id].Remove(friendId);
             }
         }
 
@@ -376,13 +500,9 @@ namespace OkeanChat.Hubs
             await Clients.Caller.SendAsync("ReceivePrivateMessage", messageInfo);
 
             // Send to receiver if online
-            if (_userConnections.ContainsValue(receiverId))
+            if (_onlineUserService.IsUserOnline(receiverId))
             {
-                var receiverConnections = _userConnections
-                    .Where(c => c.Value == receiverId)
-                    .Select(c => c.Key)
-                    .ToList();
-
+                var receiverConnections = _onlineUserService.GetUserConnections(receiverId);
                 foreach (var connectionId in receiverConnections)
                 {
                     await Clients.Client(connectionId).SendAsync("ReceivePrivateMessage", messageInfo);
@@ -472,13 +592,9 @@ namespace OkeanChat.Hubs
             };
 
             // Send to receiver if online
-            if (_userConnections.ContainsValue(receiverId))
+            if (_onlineUserService.IsUserOnline(receiverId))
             {
-                var receiverConnections = _userConnections
-                    .Where(c => c.Value == receiverId)
-                    .Select(c => c.Key)
-                    .ToList();
-
+                var receiverConnections = _onlineUserService.GetUserConnections(receiverId);
                 foreach (var connectionId in receiverConnections)
                 {
                     await Clients.Client(connectionId).SendAsync("UserTypingPrivate", senderInfo);
@@ -509,13 +625,9 @@ namespace OkeanChat.Hubs
             };
 
             // Send to receiver if online
-            if (_userConnections.ContainsValue(receiverId))
+            if (_onlineUserService.IsUserOnline(receiverId))
             {
-                var receiverConnections = _userConnections
-                    .Where(c => c.Value == receiverId)
-                    .Select(c => c.Key)
-                    .ToList();
-
+                var receiverConnections = _onlineUserService.GetUserConnections(receiverId);
                 foreach (var connectionId in receiverConnections)
                 {
                     await Clients.Client(connectionId).SendAsync("UserStoppedTypingPrivate", senderInfo);

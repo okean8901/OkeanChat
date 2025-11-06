@@ -5592,23 +5592,23 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\trang\\.nuget\\packages\\": {},
+    "C:\\Users\\letruong\\.nuget\\packages\\": {},
     "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\CODE\\Code_C#\\OkeanChat\\OkeanChat\\OkeanChat\\OkeanChat.csproj",
+      "projectUniqueName": "C:\\CodeC#\\OkeanChat\\OkeanChat\\OkeanChat\\OkeanChat.csproj",
       "projectName": "OkeanChat",
-      "projectPath": "D:\\CODE\\Code_C#\\OkeanChat\\OkeanChat\\OkeanChat\\OkeanChat.csproj",
-      "packagesPath": "C:\\Users\\trang\\.nuget\\packages\\",
-      "outputPath": "D:\\CODE\\Code_C#\\OkeanChat\\OkeanChat\\OkeanChat\\obj\\",
+      "projectPath": "C:\\CodeC#\\OkeanChat\\OkeanChat\\OkeanChat\\OkeanChat.csproj",
+      "packagesPath": "C:\\Users\\letruong\\.nuget\\packages\\",
+      "outputPath": "C:\\CodeC#\\OkeanChat\\OkeanChat\\OkeanChat\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
       ],
       "configFilePaths": [
-        "C:\\Users\\trang\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Users\\letruong\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
@@ -5636,7 +5636,7 @@
         "auditLevel": "low",
         "auditMode": "direct"
       },
-      "SdkAnalysisLevel": "10.0.100"
+      "SdkAnalysisLevel": "9.0.300"
     },
     "frameworks": {
       "net8.0": {
@@ -5686,7 +5686,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100-rc.2.25502.107/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

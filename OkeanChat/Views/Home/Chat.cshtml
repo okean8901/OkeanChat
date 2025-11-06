@@ -485,6 +485,22 @@
                 removeOnlineUser(userId);
             });
 
+            // Friend online status for private chat
+            connection.on("FriendOnline", function(userId) {
+                console.log("[Client] FriendOnline:", userId);
+                updatePrivateChatFriendStatus(userId, true);
+            });
+
+            connection.on("FriendOffline", function(userId) {
+                console.log("[Client] FriendOffline:", userId);
+                updatePrivateChatFriendStatus(userId, false);
+            });
+
+            connection.on("FriendOnlineStatus", function(friendId, isOnline) {
+                console.log("[Client] FriendOnlineStatus:", friendId, isOnline);
+                updatePrivateChatFriendStatus(friendId, isOnline);
+            });
+
             // Connection closed handler
             connection.onclose(function(error) {
                 console.warn('[Client] SignalR connection closed', error);
@@ -1494,6 +1510,18 @@
             });
         }
 
+        // Update private chat friend status
+        function updatePrivateChatFriendStatus(friendId, isOnline) {
+            if (currentPrivateChatFriendId !== friendId) return;
+            
+            const statusEl = $('#privateChatStatus');
+            if (statusEl.length) {
+                statusEl.text(isOnline ? 'Online' : 'Offline')
+                    .removeClass('text-gray-500 text-gray-400 text-green-400')
+                    .addClass(isOnline ? 'text-green-400' : 'text-gray-500');
+            }
+        }
+
         // Private Chat Functions
         function openPrivateChat(friendId, friendName, friendAvatar) {
             currentPrivateChatFriendId = friendId;
@@ -1501,21 +1529,6 @@
             // Show private chat interface
             $('#privateChatInterface').removeClass('hidden');
             $('#privateChatFriendName').text(friendName);
-            // Update private chat presence if available
-            const updateHeaderPresence = () => {
-                if (window.webrtcManager && typeof window.webrtcManager.isUserOnline === 'function') {
-                    const online = window.webrtcManager.isUserOnline(friendId);
-                    const statusEl = $('#privateChatStatus');
-                    if (statusEl.length) {
-                        statusEl.text(online ? 'Online' : 'Offline')
-                            .removeClass('text-gray-500 text-gray-400')
-                            .addClass(online ? 'text-gray-400' : 'text-gray-500');
-                    }
-                }
-            };
-            updateHeaderPresence();
-            // Listen for future presence changes
-            window.addEventListener('presence:updated', updateHeaderPresence);
             
             if (friendAvatar) {
                 $('#privateChatFriendAvatar').html(`<img src="${friendAvatar}" alt="${friendName}" class="w-10 h-10 rounded-full">`);
@@ -1527,8 +1540,14 @@
             $('#privateChatAudioBtn').attr('data-user-id', friendId);
             $('#privateChatVideoBtn').attr('data-user-id', friendId);
             
-            // Load messages
+            // Load messages and join private chat room
             if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                connection.invoke("JoinPrivateChat", friendId).catch(function(err) {
+                    console.error("[Chat] Error joining private chat:", err);
+                });
+                connection.invoke("GetFriendOnlineStatus", friendId).catch(function(err) {
+                    console.error("[Chat] Error getting friend online status:", err);
+                });
                 connection.invoke("GetPrivateMessages", friendId);
             }
             
