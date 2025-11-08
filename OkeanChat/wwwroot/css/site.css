@@ -709,7 +709,8 @@ html, body {
         height: 48px;
         font-size: 18px;
     }
-    
+}
+
 /* Avatar upload styles */
 .avatar-upload-container {
     position: relative;
@@ -1515,3 +1516,92 @@ html, body {
     justify-content: center;
     line-height: 1;
 }
+
+/* Font Awesome Icon Fixes - Global */
+/* Ensure Font Awesome icons are visible and properly styled */
+i.fas, i.far, i.fab, i.fal, i.fad {
+    display: inline-block;
+    font-style: normal;
+    font-variant: normal;
+    text-rendering: auto;
+    line-height: 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+}
+
+i.far {
+    font-weight: 400 !important;
+}
+
+i.fab {
+    font-family: "Font Awesome 6 Brands" !important;
+    font-weight: 400 !important;
+}
+
+/* Ensure ::before pseudo-element is visible */
+i.fas::before,
+i.far::before,
+i.fab::before,
+i.fal::before,
+i.fad::before {
+    display: inline-block;
+    text-rendering: auto;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Sidebar Icon Fixes */
+#sidebar i.fas {
+    display: inline-block;
+    line-height: 1;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+/* Ensure icons are properly aligned in flex containers */
+#sidebar .flex.items-center i.fas {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Icon sizing - use font-size only, not width */
+#sidebar i.fas.fa-times {
+    font-size: 1.125rem;
+}
+
+#sidebar i.fas.fa-hashtag,
+#sidebar i.fas.fa-users,
+#sidebar i.fas.fa-plus,
+#sidebar i.fas.fa-user-plus,
+#sidebar i.fas.fa-sync-alt,
+#sidebar i.fas.fa-user-clock,
+#sidebar i.fas.fa-search,
+#sidebar i.fas.fa-chevron-right {
+    font-size: 0.875rem;
+}
+
+/* Ensure icons don't shrink in flex containers */
+#sidebar i.fas.flex-shrink-0 {
+    flex-shrink: 0;
+}
+
+/* Button icon alignment */
+#sidebar button i.fas,
+button i.fas,
+a i.fas {
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+/* Prevent any CSS from hiding icons */
+i.fas,
+i.far,
+i.fab {
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+
+

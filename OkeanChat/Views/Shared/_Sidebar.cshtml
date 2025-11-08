@@ -19,7 +19,7 @@
                     <p class="text-xs text-slate-400">Language Learning</p>
                 </div>
             </div>
-            <button id="closeSidebarBtn" class="lg:hidden text-slate-400 hover:text-white transition-colors p-1 rounded-md hover:bg-slate-700/50">
+            <button id="closeSidebarBtn" class="lg:hidden text-slate-400 hover:text-white transition-colors p-1 rounded-md hover:bg-slate-700/50 flex items-center justify-center w-8 h-8">
                 <i class="fas fa-times text-lg"></i>
             </button>
         </div>
@@ -34,7 +34,7 @@
             </h2>
             @if (User.Identity?.IsAuthenticated == true)
             {
-                <button id="addChannelBtn" class="text-slate-400 hover:text-blue-400 transition-colors p-1 rounded-md hover:bg-slate-700/50" title="Add Channel">
+                <button id="addChannelBtn" class="text-slate-400 hover:text-blue-400 transition-colors p-1 rounded-md hover:bg-slate-700/50 flex items-center justify-center w-6 h-6" title="Add Channel">
                     <i class="fas fa-plus text-sm"></i>
                 </button>
             }
@@ -47,7 +47,7 @@
                 {
                     <a href="@Url.Action("Chat", "Home", new { channelId = channel.Id })" 
                        class="group flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-gradient-to-r hover:from-blue-500/10 hover:to-purple-500/10 hover:text-white rounded-lg transition-all duration-200 hover:translate-x-1 hover-lift">
-                        <i class="fas fa-hashtag text-slate-500 group-hover:text-blue-400 transition-colors"></i>
+                        <i class="fas fa-hashtag text-slate-500 group-hover:text-blue-400 transition-colors flex-shrink-0"></i>
                         <span class="flex-1 truncate">@channel.Name</span>
                     </a>
                 }
@@ -68,10 +68,10 @@
                     <span id="friendsUnreadBadge" class="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 hidden animate-pulse">0</span>
                 </div>
                 <div class="flex items-center gap-1">
-                    <button id="addFriendBtn" class="text-slate-400 hover:text-blue-400 transition-colors p-1 rounded-md hover:bg-slate-700/50" title="Add Friend">
+                    <button id="addFriendBtn" class="text-slate-400 hover:text-blue-400 transition-colors p-1 rounded-md hover:bg-slate-700/50 flex items-center justify-center w-6 h-6" title="Add Friend">
                         <i class="fas fa-user-plus text-sm"></i>
                     </button>
-                    <button id="refreshFriendsBtn" class="text-slate-400 hover:text-blue-400 transition-colors p-1 rounded-md hover:bg-slate-700/50" title="Refresh">
+                    <button id="refreshFriendsBtn" class="text-slate-400 hover:text-blue-400 transition-colors p-1 rounded-md hover:bg-slate-700/50 flex items-center justify-center w-6 h-6" title="Refresh">
                         <i class="fas fa-sync-alt text-sm"></i>
                     </button>
                 </div>
@@ -91,7 +91,7 @@
             <!-- Search Friends -->
             <div class="relative">
                 <div class="flex items-center bg-slate-700/50 border border-slate-600/50 rounded-lg overflow-hidden focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
-                    <div class="px-3 text-slate-400">
+                    <div class="px-3 text-slate-400 flex items-center justify-center">
                         <i class="fas fa-search text-sm"></i>
                     </div>
                     <input type="text" id="searchFriendInput" 
@@ -129,7 +129,7 @@
                     <p class="text-sm font-semibold text-white truncate">@(user.DisplayName ?? user.UserName)</p>
                     <p class="text-xs text-slate-400 truncate">@user.UserName</p>
                 </div>
-                <i class="fas fa-chevron-right text-slate-400 group-hover:text-blue-400 transition-colors"></i>
+                <i class="fas fa-chevron-right text-slate-400 group-hover:text-blue-400 transition-colors flex-shrink-0"></i>
             </a>
         </div>
     }
