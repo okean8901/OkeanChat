@@ -461,7 +461,7 @@ html, body {
         top: 0.5rem;
         right: 0.5rem;
     }
-}
+
 
 /* Extra small devices */
 @media (max-width: 640px) {
@@ -1478,4 +1478,40 @@ html, body {
     border: 2px solid #1f2937;
     border-radius: 50%;
     box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3);
+}
+
+/* --- Utility classes for modern UI --- */
+.hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+    transform: translateY(-2px);
+}
+
+.shadow-glow {
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.25);
+}
+
+.shadow-glow-lg {
+    box-shadow: 0 12px 30px rgba(59, 130, 246, 0.35);
+}
+
+.btn-modern {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+.btn-modern:active {
+    transform: translateY(0.5px) scale(0.995);
+}
+
+.badge-modern {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
 }

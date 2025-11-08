@@ -166,5 +166,25 @@
       }
     ],
     "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "GetUnreadByFriend",
+    "RelativePath": "api/Friend/unread-by-friend",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "OkeanChat.Controllers.FriendController",
+    "Method": "GetUnreadCount",
+    "RelativePath": "api/Friend/unread-count",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
   }
 ]

@@ -33,6 +33,30 @@
                         center: true,
                         padding: '1rem',
                         screens: { lg: '1024px', xl: '1200px' }
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'slide-down': 'slideDown 0.3s ease-out',
+                        'scale-in': 'scaleIn 0.2s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        slideDown: {
+                            '0%': { transform: 'translateY(-10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        scaleIn: {
+                            '0%': { transform: 'scale(0.95)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' }
+                        }
                     }
                 }
             }
@@ -47,22 +71,199 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <!-- SignalR -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     
     <!-- WebRTC -->
     <script src="~/js/webrtc.js"></script>
+    
+    <style>
+        * {
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+        }
+        
+        body {
+            font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11' !important;
+            background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a) !important;
+        }
+        
+        /* Smooth scrolling */
+        html {
+            scroll-behavior: smooth !important;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px !important;
+            height: 8px !important;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5) !important;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.5) !important;
+            border-radius: 4px !important;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.7) !important;
+        }
+        
+        /* Glass morphism effect - MUST HAVE !important */
+        .glass {
+            background: rgba(30, 41, 59, 0.7) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+        
+        /* Gradient text - MUST HAVE !important */
+        .gradient-text {
+            background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%) !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            background-clip: text !important;
+        }
+        
+        /* Button hover effects - MUST HAVE !important */
+        .btn-gradient {
+            background: linear-gradient(135deg, #2563eb 0%, #9333ea 100%) !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .btn-gradient:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #7e22ce 100%) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 10px 20px rgba(59, 130, 246, 0.3) !important;
+        }
+        
+        /* Ensure Tailwind gradients work */
+        .bg-gradient-to-br {
+            background-image: linear-gradient(to bottom right, var(--tw-gradient-stops)) !important;
+        }
+        
+        .bg-gradient-to-r {
+            background-image: linear-gradient(to right, var(--tw-gradient-stops)) !important;
+        }
+        
+        /* Ensure opacity utilities work */
+        .bg-blue-500\/10 {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+        }
+        
+        .bg-purple-500\/10 {
+            background-color: rgba(168, 85, 247, 0.1) !important;
+        }
+        
+        .bg-blue-500\/5 {
+            background-color: rgba(59, 130, 246, 0.05) !important;
+        }
+        
+        .bg-purple-500\/5 {
+            background-color: rgba(168, 85, 247, 0.05) !important;
+        }
+        
+        /* Ensure backdrop-blur works */
+        .backdrop-blur-sm {
+            backdrop-filter: blur(4px) !important;
+            -webkit-backdrop-filter: blur(4px) !important;
+        }
+        
+        .backdrop-blur-xl {
+            backdrop-filter: blur(24px) !important;
+            -webkit-backdrop-filter: blur(24px) !important;
+        }
+        
+        /* Ensure animations work */
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in-out !important;
+        }
+        
+        .animate-slide-up {
+            animation: slideUp 0.3s ease-out !important;
+        }
+        
+        @@keyframes fadeIn {
+            0% { opacity: 0 !important; }
+            100% { opacity: 1 !important; }
+        }
+        
+        @@keyframes slideUp {
+            0% { transform: translateY(10px) !important; opacity: 0 !important; }
+            100% { transform: translateY(0) !important; opacity: 1 !important; }
+        }
+    </style>
 </head>
-<body class="theme-enterprise bg-slate-900 text-white min-h-screen">
+<body class="theme-enterprise bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white min-h-screen" style="background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a) !important;">
+    <!-- Global Header -->
+    <header class="sticky top-0 z-50 border-b border-slate-800/60 bg-slate-900/60 backdrop-blur-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between h-14">
+                <!-- Brand -->
+                <a href="@Url.Action("Index", "Home")" class="flex items-center gap-3 group">
+                    <span class="relative w-8 h-8 rounded-full overflow-hidden ring-1 ring-slate-700/60">
+                        <img src="~/img/logo.jpg" alt="OkeanChat" class="w-full h-full object-cover" />
+                    </span>
+                    <span class="text-sm font-semibold gradient-text tracking-tight">OkeanChat</span>
+                </a>
+
+                <!-- Primary nav (can be extended later) -->
+                <nav class="hidden md:flex items-center gap-6 text-sm text-slate-300">
+                    <a href="@Url.Action("Landing", "Home")#features" class="hover:text-white">Features</a>
+                    <a href="@Url.Action("Landing", "Home")#pricing" class="hover:text-white">Pricing</a>
+                    <a href="@Url.Action("Privacy", "Home")" class="hover:text-white">Privacy</a>
+                </nav>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-2">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <a href="@Url.Action("Index", "Home")" class="btn-modern px-3 py-1.5 border border-slate-700 text-slate-200 hover:bg-slate-800/70 rounded-md">Dashboard</a>
+                    }
+                    else
+                    {
+                        <a href="@Url.Action("Login", "Account")" class="btn-modern px-3 py-1.5 border border-slate-700 text-slate-200 hover:bg-slate-800/70 rounded-md">Sign in</a>
+                        <a href="@Url.Action("Register", "Account")" class="btn-modern px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md shadow-glow">Get started</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </header>
+
     @RenderBody()
 
+    <!-- Global Footer -->
+    <footer class="border-t border-slate-800/60 mt-12">
+        <div class="container mx-auto px-4 py-8 text-sm text-slate-300">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="w-6 h-6 rounded-full overflow-hidden ring-1 ring-slate-700/60">
+                        <img src="~/img/logo.jpg" alt="OkeanChat" class="w-full h-full object-cover" />
+                    </span>
+                    <span>&copy; @DateTime.Now.Year OkeanChat</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <a href="@Url.Action("Privacy", "Home")" class="hover:text-white">Privacy</a>
+                    <a href="@Url.Action("Landing", "Home")#contact" class="hover:text-white">Contact</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+ 
     <!-- Bootstrap JS -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- Custom JS -->
     <script src="~/js/site.js" asp-append-version="true"></script>
-
+ 
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

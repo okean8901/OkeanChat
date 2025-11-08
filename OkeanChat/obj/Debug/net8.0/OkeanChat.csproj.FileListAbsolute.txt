@@ -425,3 +425,4 @@ D:\CODE\Code_C#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\refint\OkeanChat.
 D:\CODE\Code_C#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\OkeanChat.pdb
 D:\CODE\Code_C#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\OkeanChat.genruntimeconfig.cache
 D:\CODE\Code_C#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\ref\OkeanChat.dll
+C:\CodeC#\OkeanChat\OkeanChat\OkeanChat\obj\Debug\net8.0\staticwebassets.upToDateCheck.txt

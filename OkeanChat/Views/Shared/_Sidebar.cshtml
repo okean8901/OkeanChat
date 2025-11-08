@@ -1,0 +1,150 @@
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<OkeanChat.Models.ApplicationUser> UserManager
+@{
+    var user = User.Identity?.IsAuthenticated == true ? await UserManager.GetUserAsync(User) : null;
+}
+
+<!-- Sidebar Component -->
+<aside id="sidebar" class="sidebar-mobile sidebar-hidden w-64 bg-gradient-to-b from-slate-800 to-slate-900 flex flex-col fixed lg:static inset-y-0 left-0 transition-all duration-300 z-40 border-r border-slate-700/50 shadow-xl" style="transform: translateX(-100%);">
+    <!-- Header -->
+    <div class="p-4 border-b border-slate-700/50 bg-slate-800/50 backdrop-blur-sm">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3 group">
+                <div class="relative">
+                    <img src="~/img/logo.jpg" alt="OkeanChat Logo" class="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20 group-hover:ring-blue-500/40 transition-all" />
+                    <div class="absolute inset-0 rounded-full bg-gradient-to-tr from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">OkeanChat</h1>
+                    <p class="text-xs text-slate-400">Language Learning</p>
+                </div>
+            </div>
+            <button id="closeSidebarBtn" class="lg:hidden text-slate-400 hover:text-white transition-colors p-1 rounded-md hover:bg-slate-700/50">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Channels Section -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div class="flex items-center justify-between mb-2">
+            <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <i class="fas fa-hashtag text-slate-500"></i>
+                Channels
+            </h2>
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <button id="addChannelBtn" class="text-slate-400 hover:text-blue-400 transition-colors p-1 rounded-md hover:bg-slate-700/50" title="Add Channel">
+                    <i class="fas fa-plus text-sm"></i>
+                </button>
+            }
+        </div>
+        
+        <div class="space-y-1">
+            @if (ViewBag.Channels != null)
+            {
+                @foreach (var channel in (ViewBag.Channels as List<OkeanChat.Models.Channel> ?? new List<OkeanChat.Models.Channel>()))
+                {
+                    <a href="@Url.Action("Chat", "Home", new { channelId = channel.Id })" 
+                       class="group flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-gradient-to-r hover:from-blue-500/10 hover:to-purple-500/10 hover:text-white rounded-lg transition-all duration-200 hover:translate-x-1 hover-lift">
+                        <i class="fas fa-hashtag text-slate-500 group-hover:text-blue-400 transition-colors"></i>
+                        <span class="flex-1 truncate">@channel.Name</span>
+                    </a>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- Friends Section -->
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <div class="p-4 border-t border-slate-700/50 bg-slate-800/30 space-y-3">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fas fa-users text-slate-500"></i>
+                        Friends
+                    </h2>
+                    <span id="friendsUnreadBadge" class="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 hidden animate-pulse">0</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button id="addFriendBtn" class="text-slate-400 hover:text-blue-400 transition-colors p-1 rounded-md hover:bg-slate-700/50" title="Add Friend">
+                        <i class="fas fa-user-plus text-sm"></i>
+                    </button>
+                    <button id="refreshFriendsBtn" class="text-slate-400 hover:text-blue-400 transition-colors p-1 rounded-md hover:bg-slate-700/50" title="Refresh">
+                        <i class="fas fa-sync-alt text-sm"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Friend Requests Badge -->
+            <div id="friendRequestsBadge" class="hidden">
+                <button id="friendRequestsBtn" class="btn-modern w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-between transition-all duration-200 shadow-glow hover:shadow-glow-lg hover-lift">
+                    <span class="flex items-center gap-2">
+                        <i class="fas fa-user-clock"></i>
+                        Friend Requests
+                    </span>
+                    <span id="friendRequestsCount" class="badge-modern bg-white text-yellow-600 rounded-full px-2 py-1 text-xs font-bold animate-pulse">0</span>
+                </button>
+            </div>
+            
+            <!-- Search Friends -->
+            <div class="relative">
+                <div class="flex items-center bg-slate-700/50 border border-slate-600/50 rounded-lg overflow-hidden focus-within:border-blue-500/50 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
+                    <div class="px-3 text-slate-400">
+                        <i class="fas fa-search text-sm"></i>
+                    </div>
+                    <input type="text" id="searchFriendInput" 
+                           class="flex-1 bg-transparent px-2 py-2 text-white text-sm placeholder-slate-400 focus:outline-none" 
+                           placeholder="Search or add friends...">
+                </div>
+            </div>
+            
+            <div id="searchResults" class="hidden space-y-2 max-h-64 overflow-y-auto"></div>
+            
+            <!-- Friends List -->
+            <div id="friendsList" class="space-y-1 max-h-64 overflow-y-auto">
+                <!-- Friends will be loaded here -->
+            </div>
+        </div>
+    }
+
+    <!-- User Profile Section -->
+    @if (User.Identity?.IsAuthenticated == true && user != null)
+    {
+        <div class="p-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-800/50 to-slate-900/50">
+            <a href="@Url.Action("Profile", "Account")" class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-700/50 transition-all group">
+                <div class="relative">
+                    @if (!string.IsNullOrEmpty(user.Avatar))
+                    {
+                        <img id="navAvatar" src="@user.Avatar" alt="@user.DisplayName" class="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20 group-hover:ring-blue-500/40 transition-all" />
+                    }
+                    else
+                    {
+                        <img id="navAvatar" src="~/img/logo.jpg" alt="@user.DisplayName" class="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20 group-hover:ring-blue-500/40 transition-all" />
+                    }
+                    <div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-white truncate">@(user.DisplayName ?? user.UserName)</p>
+                    <p class="text-xs text-slate-400 truncate">@user.UserName</p>
+                </div>
+                <i class="fas fa-chevron-right text-slate-400 group-hover:text-blue-400 transition-colors"></i>
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="p-4 border-t border-slate-700/50">
+            <div class="flex flex-col gap-2">
+                <a href="@Url.Action("Login", "Account")" class="btn-modern w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white rounded-lg text-sm font-semibold text-center transition-all duration-200 shadow-glow hover:shadow-glow-lg hover-lift">
+                    Sign In
+                </a>
+                <a href="@Url.Action("Register", "Account")" class="btn-modern w-full px-4 py-2 border border-slate-600 text-slate-300 hover:border-slate-500 hover:bg-slate-700/50 rounded-lg text-sm font-semibold text-center transition-all duration-200 hover-lift glass">
+                    Sign Up
+                </a>
+            </div>
+        </div>
+    }
+</aside>
+

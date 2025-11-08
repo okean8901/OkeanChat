@@ -3,8 +3,8 @@
   "WorkspaceRootPath": "C:\\CodeC#\\OkeanChat\\OkeanChat\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\CodeC#\\OkeanChat\\OkeanChat\\OkeanChat\\Migrations\\20251101020133_AddFriendshipAndPrivateMessage.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:OkeanChat\\Migrations\\20251101020133_AddFriendshipAndPrivateMessage.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{E656837E-2D36-41AF-8230-3B5C278618C0}|OkeanChat\\OkeanChat.csproj|c:\\codec#\\okeanchat\\okeanchat\\okeanchat\\migrations\\20251101020133_addfriendshipandprivatemessage.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{E656837E-2D36-41AF-8230-3B5C278618C0}|OkeanChat\\OkeanChat.csproj|solutionrelative:okeanchat\\migrations\\20251101020133_addfriendshipandprivatemessage.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{E656837E-2D36-41AF-8230-3B5C278618C0}|OkeanChat\\OkeanChat.csproj|c:\\codec#\\okeanchat\\okeanchat\\okeanchat\\hubs\\chathub.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -59,8 +59,7 @@
               "RelativeToolTip": "OkeanChat\\Hubs\\ChatHub.cs",
               "ViewState": "AgIAABYAAAAAAAAAAAAgwCUAAABNAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-11-01T01:26:45.894Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-11-01T01:26:45.894Z"
             },
             {
               "$type": "Document",
@@ -72,8 +71,7 @@
               "RelativeToolTip": "OkeanChat\\Controllers\\AccountController.cs",
               "ViewState": "AgIAABYAAAAAAAAAAAAuwEYAAAASAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-30T07:01:49.297Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-30T07:01:49.297Z"
             },
             {
               "$type": "Document",
@@ -85,8 +83,7 @@
               "RelativeToolTip": "OkeanChat\\Controllers\\ChatController.cs",
               "ViewState": "AgIAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-30T07:00:52.829Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-30T07:00:52.829Z"
             },
             {
               "$type": "Document",
@@ -98,8 +95,7 @@
               "RelativeToolTip": "OkeanChat\\appsettings.json",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2025-10-22T05:15:50.217Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-22T05:15:50.217Z"
             },
             {
               "$type": "Document",
@@ -111,8 +107,7 @@
               "RelativeToolTip": "OkeanChat\\wwwroot\\css\\site.css",
               "ViewState": "AgIAAA8AAAAAAAAAAIBJwB8AAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003000|",
-              "WhenOpened": "2025-10-22T05:49:02.631Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-22T05:49:02.631Z"
             }
           ]
         }
