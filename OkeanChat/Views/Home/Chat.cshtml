@@ -1933,7 +1933,13 @@
                 
                 <!-- Call Controls -->
                 <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
-                    <button class="end-call-btn bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full flex items-center transition-all hover:scale-110 shadow-lg">
+                    <button id="muteBtn" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-full flex items-center transition-all hover:scale-110 shadow-lg" title="Mute/Unmute">
+                        <i class="fas fa-microphone text-xl"></i>
+                    </button>
+                    <button id="videoBtn" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-full flex items-center transition-all hover:scale-110 shadow-lg hidden" title="Toggle Video">
+                        <i class="fas fa-video text-xl"></i>
+                    </button>
+                    <button class="end-call-btn bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full flex items-center transition-all hover:scale-110 shadow-lg" title="End Call">
                         <i class="fas fa-phone-slash text-xl"></i>
                     </button>
                 </div>

@@ -6,6 +6,7 @@ using OkeanChat.Services;
 using OkeanChat.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
+using System.Collections.Concurrent;
 
 namespace OkeanChat.Hubs
 {
@@ -15,8 +16,10 @@ namespace OkeanChat.Hubs
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly OnlineUserService _onlineUserService;
         private readonly ApplicationDbContext _context;
-        private static readonly Dictionary<string, string> _activeCalls = new(); // CallerId -> TargetUserId
-        private static readonly Dictionary<string, string> _callConnections = new(); // ConnectionId -> CallId
+        // Thread-safe dictionaries for concurrent access
+        private static readonly ConcurrentDictionary<string, string> _activeCalls = new(); // CallerId -> TargetUserId
+        private static readonly ConcurrentDictionary<string, string> _callConnections = new(); // ConnectionId -> CallId
+        private static readonly ConcurrentDictionary<string, string> _callTypes = new(); // CallId -> CallType (audio/video)
 
         public WebRTCHub(UserManager<ApplicationUser> userManager, OnlineUserService onlineUserService, ApplicationDbContext context)
         {
@@ -43,20 +46,55 @@ namespace OkeanChat.Hubs
             {
                 _onlineUserService.RemoveConnection(user.Id, Context.ConnectionId);
                 
-                // End any active calls
-                if (_activeCalls.ContainsKey(user.Id))
+                // Clean up connection mappings
+                _callConnections.TryRemove(Context.ConnectionId, out _);
+                
+                // End any active calls where user is the caller
+                if (_activeCalls.TryRemove(user.Id, out var targetUserId))
                 {
-                    var targetUserId = _activeCalls[user.Id];
-                    _activeCalls.Remove(user.Id);
-                    await Clients.User(targetUserId).SendAsync("CallEnded", user.Id);
+                    var callerInfo = new
+                    {
+                        Id = user.Id,
+                        UserName = user.UserName,
+                        DisplayName = user.DisplayName ?? user.UserName,
+                        Avatar = user.Avatar
+                    };
+                    
+                    var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
+                    foreach (var connectionId in targetConnections)
+                    {
+                        await Clients.Client(connectionId).SendAsync("CallEnded", callerInfo);
+                    }
+                    
+                    // Clean up call type
+                    var callId = $"{user.Id}_{targetUserId}";
+                    _callTypes.TryRemove(callId, out _);
                 }
                 
                 // Remove from active calls if user is being called
-                var callingUser = _activeCalls.FirstOrDefault(x => x.Value == user.Id);
-                if (callingUser.Key != null)
+                var callingUserEntry = _activeCalls.FirstOrDefault(x => x.Value == user.Id);
+                if (!string.IsNullOrEmpty(callingUserEntry.Key))
                 {
-                    _activeCalls.Remove(callingUser.Key);
-                    await Clients.User(callingUser.Key).SendAsync("CallEnded", user.Id);
+                    if (_activeCalls.TryRemove(callingUserEntry.Key, out _))
+                    {
+                        var callerInfo = new
+                        {
+                            Id = callingUserEntry.Key,
+                            UserName = "User",
+                            DisplayName = "User",
+                            Avatar = (string?)null
+                        };
+                        
+                        var callerConnections = _onlineUserService.GetUserConnections(callingUserEntry.Key);
+                        foreach (var connectionId in callerConnections)
+                        {
+                            await Clients.Client(connectionId).SendAsync("CallEnded", callerInfo);
+                        }
+                        
+                        // Clean up call type
+                        var callId = $"{callingUserEntry.Key}_{user.Id}";
+                        _callTypes.TryRemove(callId, out _);
+                    }
                 }
                 
                 await Clients.All.SendAsync("UserOffline", user.Id);
@@ -69,6 +107,13 @@ namespace OkeanChat.Hubs
         {
             var caller = await _userManager.GetUserAsync(Context.User);
             if (caller == null) return;
+
+            // Validate call type
+            if (callType != "audio" && callType != "video")
+            {
+                await Clients.Caller.SendAsync("CallError", "Invalid call type");
+                return;
+            }
 
             // Check if users are friends
             var friendship = await _context.Friendships
@@ -97,34 +142,42 @@ namespace OkeanChat.Hubs
                 return;
             }
 
-            // Check if target is already in a call
-            if (_activeCalls.ContainsValue(targetUserId))
+            // Check if target is already in a call (as caller or receiver)
+            if (_activeCalls.ContainsKey(targetUserId) || _activeCalls.Values.Contains(targetUserId))
             {
                 await Clients.Caller.SendAsync("CallError", "User is busy");
                 return;
             }
 
             // Register the call
-            _activeCalls[caller.Id] = targetUserId;
-            _callConnections[Context.ConnectionId] = $"{caller.Id}_{targetUserId}";
-
-            var callerInfo = new
+            var callId = $"{caller.Id}_{targetUserId}";
+            if (_activeCalls.TryAdd(caller.Id, targetUserId))
             {
-                Id = caller.Id,
-                UserName = caller.UserName,
-                DisplayName = caller.DisplayName ?? caller.UserName,
-                Avatar = caller.Avatar
-            };
+                _callConnections.TryAdd(Context.ConnectionId, callId);
+                _callTypes.TryAdd(callId, callType);
 
-            // Send notification to target
-            var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
-            foreach (var connectionId in targetConnections)
-            {
-                await Clients.Client(connectionId).SendAsync("IncomingCall", callerInfo, callType);
+                var callerInfo = new
+                {
+                    Id = caller.Id,
+                    UserName = caller.UserName,
+                    DisplayName = caller.DisplayName ?? caller.UserName,
+                    Avatar = caller.Avatar
+                };
+
+                // Send notification to target
+                var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
+                foreach (var connectionId in targetConnections)
+                {
+                    await Clients.Client(connectionId).SendAsync("IncomingCall", callerInfo, callType);
+                }
+
+                // Notify caller that call is initiated
+                await Clients.Caller.SendAsync("CallInitiated", targetUserId, callType);
             }
-
-            // Notify caller that call is initiated
-            await Clients.Caller.SendAsync("CallInitiated", targetUserId, callType);
+            else
+            {
+                await Clients.Caller.SendAsync("CallError", "Failed to initiate call. Please try again.");
+            }
         }
 
         // Gửi offer cho cuộc gọi
@@ -134,7 +187,7 @@ namespace OkeanChat.Hubs
             if (caller == null) return;
 
             // Verify call is active
-            if (!_activeCalls.ContainsKey(caller.Id) || _activeCalls[caller.Id] != targetUserId)
+            if (!_activeCalls.TryGetValue(caller.Id, out var targetId) || targetId != targetUserId)
             {
                 await Clients.Caller.SendAsync("CallError", "Call not found");
                 return;
@@ -165,33 +218,43 @@ namespace OkeanChat.Hubs
         // Gửi answer cho cuộc gọi
         public async Task SendAnswer(string targetUserId, string answer)
         {
-            var caller = await _userManager.GetUserAsync(Context.User);
-            if (caller == null) return;
+            var sender = await _userManager.GetUserAsync(Context.User);
+            if (sender == null) return;
 
-            // Verify call is active (either caller or receiver can send answer)
-            var isCaller = _activeCalls.ContainsKey(caller.Id) && _activeCalls[caller.Id] == targetUserId;
-            var isReceiver = _activeCalls.ContainsKey(targetUserId) && _activeCalls[targetUserId] == caller.Id;
+            // Determine who is the actual target (the other party in the call)
+            string? actualTargetId = null;
 
-            if (!isCaller && !isReceiver)
+            // Check if sender is the caller
+            if (_activeCalls.TryGetValue(sender.Id, out var calledUserId) && calledUserId == targetUserId)
+            {
+                actualTargetId = targetUserId;
+            }
+            // Check if sender is the receiver (targetUserId is the caller)
+            else if (_activeCalls.TryGetValue(targetUserId, out var receiverId) && receiverId == sender.Id)
+            {
+                actualTargetId = targetUserId;
+            }
+
+            if (actualTargetId == null)
             {
                 await Clients.Caller.SendAsync("CallError", "Call not found");
                 return;
             }
 
-            var callerInfo = new
+            var senderInfo = new
             {
-                Id = caller.Id,
-                UserName = caller.UserName,
-                DisplayName = caller.DisplayName ?? caller.UserName,
-                Avatar = caller.Avatar
+                Id = sender.Id,
+                UserName = sender.UserName,
+                DisplayName = sender.DisplayName ?? sender.UserName,
+                Avatar = sender.Avatar
             };
 
-            var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
+            var targetConnections = _onlineUserService.GetUserConnections(actualTargetId);
             if (targetConnections.Any())
             {
                 foreach (var connectionId in targetConnections)
                 {
-                    await Clients.Client(connectionId).SendAsync("ReceiveAnswer", callerInfo, answer);
+                    await Clients.Client(connectionId).SendAsync("ReceiveAnswer", senderInfo, answer);
                 }
             }
         }
@@ -199,32 +262,42 @@ namespace OkeanChat.Hubs
         // Gửi ICE candidate
         public async Task SendIceCandidate(string targetUserId, string candidate)
         {
-            var caller = await _userManager.GetUserAsync(Context.User);
-            if (caller == null) return;
+            var sender = await _userManager.GetUserAsync(Context.User);
+            if (sender == null) return;
 
-            // Verify call is active
-            var isCaller = _activeCalls.ContainsKey(caller.Id) && _activeCalls[caller.Id] == targetUserId;
-            var isReceiver = _activeCalls.ContainsKey(targetUserId) && _activeCalls[targetUserId] == caller.Id;
+            // Determine who is the actual target (the other party in the call)
+            string? actualTargetId = null;
 
-            if (!isCaller && !isReceiver)
+            // Check if sender is the caller
+            if (_activeCalls.TryGetValue(sender.Id, out var calledUserId) && calledUserId == targetUserId)
+            {
+                actualTargetId = targetUserId;
+            }
+            // Check if sender is the receiver (targetUserId is the caller)
+            else if (_activeCalls.TryGetValue(targetUserId, out var receiverId) && receiverId == sender.Id)
+            {
+                actualTargetId = targetUserId;
+            }
+
+            if (actualTargetId == null)
             {
                 return; // Silently ignore if call not active
             }
 
-            var callerInfo = new
+            var senderInfo = new
             {
-                Id = caller.Id,
-                UserName = caller.UserName,
-                DisplayName = caller.DisplayName ?? caller.UserName,
-                Avatar = caller.Avatar
+                Id = sender.Id,
+                UserName = sender.UserName,
+                DisplayName = sender.DisplayName ?? sender.UserName,
+                Avatar = sender.Avatar
             };
 
-            var targetConnections = _onlineUserService.GetUserConnections(targetUserId);
+            var targetConnections = _onlineUserService.GetUserConnections(actualTargetId);
             if (targetConnections.Any())
             {
                 foreach (var connectionId in targetConnections)
                 {
-                    await Clients.Client(connectionId).SendAsync("ReceiveIceCandidate", callerInfo, candidate);
+                    await Clients.Client(connectionId).SendAsync("ReceiveIceCandidate", senderInfo, candidate);
                 }
             }
         }
@@ -232,31 +305,99 @@ namespace OkeanChat.Hubs
         // Chấp nhận cuộc gọi
         public async Task AcceptCall(string callerId)
         {
-            var receiver = await _userManager.GetUserAsync(Context.User);
-            if (receiver == null) return;
-
-            // Verify call is active
-            if (!_activeCalls.ContainsKey(callerId) || _activeCalls[callerId] != receiver.Id)
+            try
             {
-                await Clients.Caller.SendAsync("CallError", "Call not found");
-                return;
+                // Validate input
+                if (string.IsNullOrEmpty(callerId))
+                {
+                    await Clients.Caller.SendAsync("CallError", "Invalid caller ID");
+                    return;
+                }
+
+                var receiver = await _userManager.GetUserAsync(Context.User);
+                if (receiver == null)
+                {
+                    await Clients.Caller.SendAsync("CallError", "User not found");
+                    return;
+                }
+
+                // Verify call is active
+                if (!_activeCalls.TryGetValue(callerId, out var receiverId) || receiverId != receiver.Id)
+                {
+                    await Clients.Caller.SendAsync("CallError", "Call not found");
+                    return;
+                }
+
+                var receiverInfo = new
+                {
+                    Id = receiver.Id,
+                    UserName = receiver.UserName ?? string.Empty,
+                    DisplayName = receiver.DisplayName ?? receiver.UserName ?? string.Empty,
+                    Avatar = receiver.Avatar ?? string.Empty
+                };
+
+                // Notify caller that call is accepted
+                var callerConnections = _onlineUserService.GetUserConnections(callerId);
+                if (callerConnections != null && callerConnections.Count > 0)
+                {
+                    var tasks = new List<Task>();
+                    foreach (var connectionId in callerConnections)
+                    {
+                        if (!string.IsNullOrEmpty(connectionId))
+                        {
+                            tasks.Add(SendToConnectionSafely(connectionId, "CallAccepted", receiverInfo));
+                        }
+                    }
+                    
+                    // Wait for all messages, but don't fail if some fail
+                    if (tasks.Count > 0)
+                    {
+                        await Task.WhenAll(tasks.Select(t => t.ContinueWith(task => 
+                        {
+                            if (task.IsFaulted)
+                            {
+                                // Log but don't throw
+                                Console.WriteLine($"Error sending CallAccepted: {task.Exception?.GetBaseException()?.Message}");
+                            }
+                        })));
+                    }
+                }
+                else
+                {
+                    await Clients.Caller.SendAsync("CallError", "Caller is not connected");
+                }
             }
-
-            var receiverInfo = new
+            catch (Exception ex)
             {
-                Id = receiver.Id,
-                UserName = receiver.UserName,
-                DisplayName = receiver.DisplayName ?? receiver.UserName
-            };
-
-            // Notify caller that call is accepted
-            var callerConnections = _onlineUserService.GetUserConnections(callerId);
-            foreach (var connectionId in callerConnections)
-            {
-                await Clients.Client(connectionId).SendAsync("CallAccepted", receiverInfo);
+                // Log error
+                Console.WriteLine($"Error in AcceptCall: {ex.Message}\n{ex.StackTrace}");
+                
+                // Try to notify caller, but don't throw if this fails
+                try
+                {
+                    await Clients.Caller.SendAsync("CallError", "An error occurred while accepting the call");
+                }
+                catch
+                {
+                    // Ignore if we can't send error message
+                }
+                
+                // Don't re-throw - SignalR will handle it, but we've already notified the client
             }
+        }
 
-            await Clients.Caller.SendAsync("CallAccepted", receiverInfo);
+        // Helper method to safely send messages to a connection
+        private async Task SendToConnectionSafely(string connectionId, string method, object data)
+        {
+            try
+            {
+                await Clients.Client(connectionId).SendAsync(method, data);
+            }
+            catch (Exception ex)
+            {
+                // Log but don't throw
+                Console.WriteLine($"Error sending {method} to {connectionId}: {ex.Message}");
+            }
         }
 
         // Từ chối cuộc gọi
@@ -266,55 +407,72 @@ namespace OkeanChat.Hubs
             if (receiver == null) return;
 
             // Remove call from active calls
-            if (_activeCalls.ContainsKey(callerId))
+            if (_activeCalls.TryRemove(callerId, out var receiverId))
             {
-                _activeCalls.Remove(callerId);
+                // Clean up call type
+                var callId = $"{callerId}_{receiverId}";
+                _callTypes.TryRemove(callId, out _);
+
+                var receiverInfo = new
+                {
+                    Id = receiver.Id,
+                    UserName = receiver.UserName,
+                    DisplayName = receiver.DisplayName ?? receiver.UserName,
+                    Avatar = receiver.Avatar
+                };
+
+                // Notify caller that call is rejected
+                var callerConnections = _onlineUserService.GetUserConnections(callerId);
+                foreach (var connectionId in callerConnections)
+                {
+                    await Clients.Client(connectionId).SendAsync("CallRejected", receiverInfo);
+                }
             }
-
-            var receiverInfo = new
-            {
-                Id = receiver.Id,
-                UserName = receiver.UserName,
-                DisplayName = receiver.DisplayName ?? receiver.UserName
-            };
-
-            // Notify caller that call is rejected
-            var callerConnections = _onlineUserService.GetUserConnections(callerId);
-            foreach (var connectionId in callerConnections)
-            {
-                await Clients.Client(connectionId).SendAsync("CallRejected", receiverInfo);
-            }
-
-            await Clients.Caller.SendAsync("CallRejected", receiverInfo);
         }
 
         // Kết thúc cuộc gọi
         public async Task EndCall(string targetUserId)
         {
-            var caller = await _userManager.GetUserAsync(Context.User);
-            if (caller == null) return;
+            var sender = await _userManager.GetUserAsync(Context.User);
+            if (sender == null) return;
 
             // Remove call from active calls
             bool removed = false;
-            if (_activeCalls.ContainsKey(caller.Id) && _activeCalls[caller.Id] == targetUserId)
+            string callId = null;
+
+            // Check if sender is the caller
+            if (_activeCalls.TryGetValue(sender.Id, out var calledUserId) && calledUserId == targetUserId)
             {
-                _activeCalls.Remove(caller.Id);
-                removed = true;
+                if (_activeCalls.TryRemove(sender.Id, out _))
+                {
+                    callId = $"{sender.Id}_{targetUserId}";
+                    removed = true;
+                }
             }
-            else if (_activeCalls.ContainsKey(targetUserId) && _activeCalls[targetUserId] == caller.Id)
+            // Check if sender is the receiver
+            else if (_activeCalls.TryGetValue(targetUserId, out var receiverId) && receiverId == sender.Id)
             {
-                _activeCalls.Remove(targetUserId);
-                removed = true;
+                if (_activeCalls.TryRemove(targetUserId, out _))
+                {
+                    callId = $"{targetUserId}_{sender.Id}";
+                    removed = true;
+                }
             }
 
             if (removed)
             {
-                var callerInfo = new
+                // Clean up call type
+                if (callId != null)
                 {
-                    Id = caller.Id,
-                    UserName = caller.UserName,
-                    DisplayName = caller.DisplayName ?? caller.UserName,
-                    Avatar = caller.Avatar
+                    _callTypes.TryRemove(callId, out _);
+                }
+
+                var senderInfo = new
+                {
+                    Id = sender.Id,
+                    UserName = sender.UserName,
+                    DisplayName = sender.DisplayName ?? sender.UserName,
+                    Avatar = sender.Avatar
                 };
 
                 // Notify target that call ended
@@ -323,11 +481,9 @@ namespace OkeanChat.Hubs
                 {
                     foreach (var connectionId in targetConnections)
                     {
-                        await Clients.Client(connectionId).SendAsync("CallEnded", callerInfo);
+                        await Clients.Client(connectionId).SendAsync("CallEnded", senderInfo);
                     }
                 }
-
-                await Clients.Caller.SendAsync("CallEnded", callerInfo);
             }
         }
 

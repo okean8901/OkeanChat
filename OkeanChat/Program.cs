@@ -100,6 +100,7 @@ app.UseAuthorization();
 app.MapHub<ChatHub>("/chatHub");
 app.MapHub<WebRTCHub>("/webrtcHub");
 app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<CallHub>("/callHub");
 
 app.MapControllerRoute(
     name: "default",

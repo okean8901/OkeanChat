@@ -9,10 +9,15 @@ class WebRTCManager {
         this.connection = null;
         this.isInCall = false;
         this.pendingOffer = null;
+        this.pendingIceCandidates = []; // Store ICE candidates received before peer connection is ready
         this.onlineUserIds = new Set();
         this.presenceIntervalId = null;
         this.isCaller = false;
         this.callState = 'idle'; // idle, calling, ringing, connecting, connected, ended
+        this.isMuted = false;
+        this.isVideoEnabled = true;
+        this.callTimeoutId = null;
+        this.iceGatheringTimeoutId = null;
         
         // WebRTC configuration with multiple STUN servers for better connectivity
         this.config = {
@@ -82,11 +87,11 @@ class WebRTCManager {
         });
 
         this.connection.on("ReceiveOffer", (callerInfo, offer) => {
-            this.handleReceiveOffer(callerInfo.Id, offer);
+            this.handleReceiveOffer(callerInfo, offer);
         });
 
         this.connection.on("ReceiveAnswer", (receiverInfo, answer) => {
-            this.handleReceiveAnswer(receiverInfo.Id, answer);
+            this.handleReceiveAnswer(receiverInfo, answer);
         });
 
         this.connection.on("ReceiveIceCandidate", (userInfo, candidate) => {
@@ -98,11 +103,11 @@ class WebRTCManager {
         });
 
         this.connection.on("CallRejected", (receiverInfo) => {
-            this.handleCallRejected();
+            this.handleCallRejected(receiverInfo);
         });
 
         this.connection.on("CallEnded", (userInfo) => {
-            this.handleCallEnded();
+            this.handleCallEnded(userInfo);
         });
 
         this.connection.on("CallError", (errorMessage) => {
@@ -131,22 +136,31 @@ class WebRTCManager {
     setupEventListeners() {
         // Call buttons
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('call-btn')) {
-                const userId = e.target.dataset.userId;
-                const callType = e.target.dataset.callType;
+            if (e.target.closest('.call-btn')) {
+                const btn = e.target.closest('.call-btn');
+                const userId = btn.dataset.userId;
+                const callType = btn.dataset.callType;
                 this.startCall(userId, callType);
             }
             
-            if (e.target.classList.contains('end-call-btn')) {
+            if (e.target.closest('.end-call-btn')) {
                 this.endCall();
             }
             
-            if (e.target.classList.contains('accept-call-btn')) {
+            if (e.target.closest('.accept-call-btn')) {
                 this.acceptCall();
             }
             
-            if (e.target.classList.contains('reject-call-btn')) {
+            if (e.target.closest('.reject-call-btn')) {
                 this.rejectCall();
+            }
+            
+            if (e.target.closest('#muteBtn') || e.target.closest('#muteBtn i')) {
+                this.toggleMute();
+            }
+            
+            if (e.target.closest('#videoBtn') || e.target.closest('#videoBtn i')) {
+                this.toggleVideo();
             }
         });
     }
@@ -161,6 +175,9 @@ class WebRTCManager {
             this.currentCall = { userId, callType };
             this.isCaller = true;
             this.callState = 'calling';
+            this.isMuted = false;
+            this.isVideoEnabled = callType === 'video';
+            this.pendingIceCandidates = [];
             
             // Get user media with error handling
             try {
@@ -190,11 +207,12 @@ class WebRTCManager {
                 if (this.peerConnection.connectionState === 'connected') {
                     this.callState = 'connected';
                     this.updateCallInfo('Connected');
+                    this.clearCallTimeout();
                 } else if (this.peerConnection.connectionState === 'disconnected' || 
                           this.peerConnection.connectionState === 'failed' ||
                           this.peerConnection.connectionState === 'closed') {
                     if (this.callState !== 'ended') {
-                        this.handleCallEnded();
+                        this.handleCallEnded(null);
                     }
                 }
             };
@@ -202,9 +220,12 @@ class WebRTCManager {
             // Handle ICE connection state
             this.peerConnection.oniceconnectionstatechange = () => {
                 console.log("ICE connection state:", this.peerConnection.iceConnectionState);
-                if (this.peerConnection.iceConnectionState === 'failed') {
+                if (this.peerConnection.iceConnectionState === 'connected' || 
+                    this.peerConnection.iceConnectionState === 'completed') {
+                    this.clearCallTimeout();
+                } else if (this.peerConnection.iceConnectionState === 'failed') {
                     this.showNotification("Connection failed. Please try again.", "error");
-                    this.handleCallEnded();
+                    this.handleCallEnded(null);
                 }
             };
 
@@ -225,11 +246,20 @@ class WebRTCManager {
                 if (event.candidate) {
                     this.connection.invoke("SendIceCandidate", userId, JSON.stringify(event.candidate))
                         .catch(err => console.error("Error sending ICE candidate:", err));
+                } else {
+                    // ICE gathering complete
+                    console.log("ICE gathering complete");
                 }
             };
 
-            // Create and send offer first
-            const offer = await this.peerConnection.createOffer();
+            // Set timeout for call (60 seconds)
+            this.setCallTimeout(60000);
+
+            // Create and send offer
+            const offer = await this.peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: callType === 'video'
+            });
             await this.peerConnection.setLocalDescription(offer);
 
             // Initiate call through hub (this sends IncomingCall to receiver)
@@ -262,6 +292,9 @@ class WebRTCManager {
             this.isCaller = false;
             this.callState = 'connecting';
             this.isInCall = true;
+            this.isMuted = false;
+            this.isVideoEnabled = callType === 'video';
+            this.pendingIceCandidates = [];
 
             // Notify hub that call is accepted
             await this.connection.invoke("AcceptCall", callerId);
@@ -288,11 +321,12 @@ class WebRTCManager {
                 if (this.peerConnection.connectionState === 'connected') {
                     this.callState = 'connected';
                     this.updateCallInfo('Connected');
+                    this.clearCallTimeout();
                 } else if (this.peerConnection.connectionState === 'disconnected' || 
                           this.peerConnection.connectionState === 'failed' ||
                           this.peerConnection.connectionState === 'closed') {
                     if (this.callState !== 'ended') {
-                        this.handleCallEnded();
+                        this.handleCallEnded(null);
                     }
                 }
             };
@@ -300,9 +334,12 @@ class WebRTCManager {
             // Handle ICE connection state
             this.peerConnection.oniceconnectionstatechange = () => {
                 console.log("ICE connection state:", this.peerConnection.iceConnectionState);
-                if (this.peerConnection.iceConnectionState === 'failed') {
+                if (this.peerConnection.iceConnectionState === 'connected' || 
+                    this.peerConnection.iceConnectionState === 'completed') {
+                    this.clearCallTimeout();
+                } else if (this.peerConnection.iceConnectionState === 'failed') {
                     this.showNotification("Connection failed. Please try again.", "error");
-                    this.handleCallEnded();
+                    this.handleCallEnded(null);
                 }
             };
 
@@ -323,18 +360,43 @@ class WebRTCManager {
                 if (event.candidate) {
                     this.connection.invoke("SendIceCandidate", callerId, JSON.stringify(event.candidate))
                         .catch(err => console.error("Error sending ICE candidate:", err));
+                } else {
+                    console.log("ICE gathering complete");
                 }
             };
 
-            // If we have a pending offer, use it; otherwise wait for offer
+            // Set timeout for call
+            this.setCallTimeout(60000);
+
+            // Process pending offer if available
             if (this.pendingOffer && this.pendingOffer.callerId === callerId) {
-                await this.peerConnection.setRemoteDescription(this.pendingOffer.offer);
-                this.pendingOffer = null;
-                
-                // Create and send answer
-                const answer = await this.peerConnection.createAnswer();
-                await this.peerConnection.setLocalDescription(answer);
-                await this.connection.invoke("SendAnswer", callerId, JSON.stringify(answer));
+                try {
+                    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(this.pendingOffer.offer));
+                    this.pendingOffer = null;
+                    
+                    // Process any pending ICE candidates
+                    for (const candidate of this.pendingIceCandidates) {
+                        try {
+                            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        } catch (err) {
+                            console.warn("Error adding pending ICE candidate:", err);
+                        }
+                    }
+                    this.pendingIceCandidates = [];
+                    
+                    // Create and send answer
+                    const answer = await this.peerConnection.createAnswer({
+                        offerToReceiveAudio: true,
+                        offerToReceiveVideo: callType === 'video'
+                    });
+                    await this.peerConnection.setLocalDescription(answer);
+                    await this.connection.invoke("SendAnswer", callerId, JSON.stringify(answer));
+                } catch (error) {
+                    console.error("Error processing offer:", error);
+                    this.showNotification("Error processing call offer", "error");
+                    await this.rejectCall();
+                    return;
+                }
             }
 
             // Show call interface
@@ -355,15 +417,34 @@ class WebRTCManager {
             const callerId = callerInfo.Id || callerInfo;
             const offerObj = typeof offer === 'string' ? JSON.parse(offer) : offer;
             
-            // If we're the receiver and have accepted the call, handle the offer
-            if (this.peerConnection && this.currentCall && this.currentCall.userId === callerId && !this.isCaller) {
-                await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offerObj));
-                
-                // Create and send answer
-                if (this.peerConnection.localDescription === null) {
-                    const answer = await this.peerConnection.createAnswer();
-                    await this.peerConnection.setLocalDescription(answer);
-                    await this.connection.invoke("SendAnswer", callerId, JSON.stringify(answer));
+            // If we're the receiver and have accepted the call, handle the offer immediately
+            if (this.peerConnection && this.currentCall && this.currentCall.userId === callerId && !this.isCaller && this.isInCall) {
+                try {
+                    await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offerObj));
+                    
+                    // Process any pending ICE candidates
+                    for (const candidate of this.pendingIceCandidates) {
+                        try {
+                            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        } catch (err) {
+                            console.warn("Error adding pending ICE candidate:", err);
+                        }
+                    }
+                    this.pendingIceCandidates = [];
+                    
+                    // Create and send answer if not already sent
+                    if (this.peerConnection.localDescription === null) {
+                        const callType = this.currentCall.callType;
+                        const answer = await this.peerConnection.createAnswer({
+                            offerToReceiveAudio: true,
+                            offerToReceiveVideo: callType === 'video'
+                        });
+                        await this.peerConnection.setLocalDescription(answer);
+                        await this.connection.invoke("SendAnswer", callerId, JSON.stringify(answer));
+                    }
+                } catch (error) {
+                    console.error("Error processing offer:", error);
+                    this.showNotification("Error processing call offer", "error");
                 }
             } else {
                 // Store offer for when user accepts
@@ -376,15 +457,39 @@ class WebRTCManager {
         }
     }
 
-    async handleReceiveAnswer(receiverId, answer) {
+    async handleReceiveAnswer(receiverInfo, answer) {
         try {
             if (!this.peerConnection) {
                 console.warn("Received answer but no peer connection");
                 return;
             }
             
+            // Only process if we're the caller and waiting for answer
+            if (!this.isCaller || (this.callState !== 'calling' && this.callState !== 'connecting')) {
+                console.warn("Received answer but not in correct state");
+                return;
+            }
+            
             const answerObj = typeof answer === 'string' ? JSON.parse(answer) : answer;
+            
+            // Check if we already have a remote description
+            if (this.peerConnection.remoteDescription) {
+                console.warn("Already have remote description, ignoring duplicate answer");
+                return;
+            }
+            
             await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answerObj));
+            
+            // Process any pending ICE candidates
+            for (const candidate of this.pendingIceCandidates) {
+                try {
+                    await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (err) {
+                    console.warn("Error adding pending ICE candidate:", err);
+                }
+            }
+            this.pendingIceCandidates = [];
+            
             this.callState = 'connecting';
             this.updateCallInfo('Connecting...');
         } catch (error) {
@@ -395,16 +500,25 @@ class WebRTCManager {
 
     async handleReceiveIceCandidate(userId, candidate) {
         try {
+            const candidateObj = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
+            
             if (!this.peerConnection) {
-                console.warn("Received ICE candidate but no peer connection");
+                // Store candidate for later if peer connection not ready
+                this.pendingIceCandidates.push(candidateObj);
                 return;
             }
             
-            const candidateObj = typeof candidate === 'string' ? JSON.parse(candidate) : candidate;
-            await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidateObj));
+            // Only add if remote description is set
+            if (this.peerConnection.remoteDescription) {
+                await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidateObj));
+            } else {
+                // Store candidate for later
+                this.pendingIceCandidates.push(candidateObj);
+            }
         } catch (error) {
             // Ignore errors for ICE candidates that are already processed
-            if (error.message && !error.message.includes('already processed')) {
+            if (error.message && !error.message.includes('already processed') && 
+                !error.message.includes('InvalidStateError')) {
                 console.error("Error handling ICE candidate:", error);
             }
         }
@@ -413,7 +527,9 @@ class WebRTCManager {
     handleCallAccepted(receiverInfo) {
         if (this.isCaller && this.callState === 'calling') {
             this.callState = 'connecting';
-            this.updateCallInfo('Call accepted, connecting...');
+            this.isInCall = true;
+            const userName = receiverInfo?.DisplayName || receiverInfo?.UserName || 'User';
+            this.updateCallInfo(`Call accepted by ${userName}, connecting...`);
         }
     }
 
@@ -442,16 +558,22 @@ class WebRTCManager {
         }
     }
 
-    handleCallRejected() {
-        this.showNotification("Call was rejected", "info");
+    handleCallRejected(receiverInfo) {
+        const userName = receiverInfo?.DisplayName || receiverInfo?.UserName || 'User';
+        this.showNotification(`Call was rejected by ${userName}`, "info");
         this.callState = 'ended';
         this.cleanup();
         this.hideCallInterface();
         this.hideIncomingCallModal();
     }
 
-    handleCallEnded() {
-        this.showNotification("Call ended", "info");
+    handleCallEnded(userInfo) {
+        if (userInfo) {
+            const userName = userInfo.DisplayName || userInfo.UserName || 'User';
+            this.showNotification(`Call ended by ${userName}`, "info");
+        } else {
+            this.showNotification("Call ended", "info");
+        }
         this.callState = 'ended';
         this.cleanup();
         this.hideCallInterface();
@@ -467,6 +589,8 @@ class WebRTCManager {
     }
 
     cleanup() {
+        this.clearCallTimeout();
+        
         if (this.localStream) {
             this.localStream.getTracks().forEach(track => {
                 track.stop();
@@ -496,7 +620,70 @@ class WebRTCManager {
         this.isInCall = false;
         this.isCaller = false;
         this.pendingOffer = null;
+        this.pendingIceCandidates = [];
         this.callState = 'idle';
+        this.isMuted = false;
+        this.isVideoEnabled = true;
+    }
+    
+    setCallTimeout(duration) {
+        this.clearCallTimeout();
+        this.callTimeoutId = setTimeout(() => {
+            if (this.callState === 'calling' || this.callState === 'ringing') {
+                this.showNotification("Call timeout. No response received.", "error");
+                this.handleCallEnded(null);
+            }
+        }, duration);
+    }
+    
+    clearCallTimeout() {
+        if (this.callTimeoutId) {
+            clearTimeout(this.callTimeoutId);
+            this.callTimeoutId = null;
+        }
+    }
+    
+    toggleMute() {
+        if (!this.localStream) return;
+        
+        this.isMuted = !this.isMuted;
+        this.localStream.getAudioTracks().forEach(track => {
+            track.enabled = !this.isMuted;
+        });
+        
+        const muteBtn = document.getElementById('muteBtn');
+        if (muteBtn) {
+            const icon = muteBtn.querySelector('i');
+            if (icon) {
+                icon.className = this.isMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+            }
+            muteBtn.classList.toggle('bg-red-600', this.isMuted);
+            muteBtn.classList.toggle('bg-gray-600', !this.isMuted);
+        }
+    }
+    
+    toggleVideo() {
+        if (!this.localStream || !this.currentCall || this.currentCall.callType !== 'video') return;
+        
+        this.isVideoEnabled = !this.isVideoEnabled;
+        this.localStream.getVideoTracks().forEach(track => {
+            track.enabled = this.isVideoEnabled;
+        });
+        
+        const videoBtn = document.getElementById('videoBtn');
+        if (videoBtn) {
+            const icon = videoBtn.querySelector('i');
+            if (icon) {
+                icon.className = this.isVideoEnabled ? 'fas fa-video' : 'fas fa-video-slash';
+            }
+            videoBtn.classList.toggle('bg-red-600', !this.isVideoEnabled);
+            videoBtn.classList.toggle('bg-gray-600', this.isVideoEnabled);
+        }
+        
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.style.opacity = this.isVideoEnabled ? '1' : '0.5';
+        }
     }
 
     setupRemoteVideo() {
@@ -559,6 +746,7 @@ class WebRTCManager {
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
         const callInfo = document.getElementById('callInfo');
+        const controlsContainer = callInterface?.querySelector('.absolute.bottom-4');
         
         if (callInterface) {
             callInterface.classList.remove('hidden');
@@ -570,7 +758,36 @@ class WebRTCManager {
         
         // Update call info
         if (callInfo) {
-            callInfo.textContent = callType === 'video' ? 'Video Call in progress...' : 'Audio Call in progress...';
+            const userName = this.currentCall?.userName || 'User';
+            callInfo.textContent = callType === 'video' ? `Video Call with ${userName}` : `Audio Call with ${userName}`;
+        }
+        
+        // Update controls with mute/video buttons
+        const muteBtn = document.getElementById('muteBtn');
+        const videoBtn = document.getElementById('videoBtn');
+        
+        if (muteBtn) {
+            muteBtn.classList.remove('hidden');
+            const icon = muteBtn.querySelector('i');
+            if (icon) {
+                icon.className = this.isMuted ? 'fas fa-microphone-slash text-xl' : 'fas fa-microphone text-xl';
+            }
+            muteBtn.classList.toggle('bg-red-600', this.isMuted);
+            muteBtn.classList.toggle('bg-gray-600', !this.isMuted);
+        }
+        
+        if (videoBtn) {
+            if (callType === 'video') {
+                videoBtn.classList.remove('hidden');
+                const icon = videoBtn.querySelector('i');
+                if (icon) {
+                    icon.className = this.isVideoEnabled ? 'fas fa-video text-xl' : 'fas fa-video-slash text-xl';
+                }
+                videoBtn.classList.toggle('bg-red-600', !this.isVideoEnabled);
+                videoBtn.classList.toggle('bg-gray-600', this.isVideoEnabled);
+            } else {
+                videoBtn.classList.add('hidden');
+            }
         }
         
         // Show/hide video elements based on call type
@@ -579,21 +796,28 @@ class WebRTCManager {
             if (remoteVideo) remoteVideo.style.display = 'none';
             // Show audio placeholder
             if (remoteVideo && remoteVideo.parentElement) {
-                const audioPlaceholder = remoteVideo.parentElement.querySelector('.audio-placeholder');
+                let audioPlaceholder = remoteVideo.parentElement.querySelector('.audio-placeholder');
                 if (!audioPlaceholder) {
-                    const placeholder = document.createElement('div');
-                    placeholder.className = 'audio-placeholder w-full h-full flex items-center justify-center bg-gray-800';
-                    placeholder.innerHTML = `
+                    audioPlaceholder = document.createElement('div');
+                    audioPlaceholder.className = 'audio-placeholder w-full h-full flex items-center justify-center bg-gray-800';
+                    const userName = this.currentCall?.userName || 'User';
+                    audioPlaceholder.innerHTML = `
                         <div class="text-center">
-                            <i class="fas fa-phone text-white text-6xl mb-4"></i>
-                            <p class="text-white text-xl">Audio Call</p>
+                            <div class="w-32 h-32 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-phone text-white text-5xl"></i>
+                            </div>
+                            <p class="text-white text-2xl font-semibold">${userName}</p>
+                            <p class="text-gray-400 text-lg mt-2">Audio Call</p>
                         </div>
                     `;
-                    remoteVideo.parentElement.appendChild(placeholder);
+                    remoteVideo.parentElement.appendChild(audioPlaceholder);
                 }
             }
         } else {
-            if (localVideo) localVideo.style.display = 'block';
+            if (localVideo) {
+                localVideo.style.display = 'block';
+                localVideo.style.opacity = this.isVideoEnabled ? '1' : '0.5';
+            }
             if (remoteVideo) remoteVideo.style.display = 'block';
             // Remove audio placeholder if exists
             const audioPlaceholder = remoteVideo?.parentElement?.querySelector('.audio-placeholder');
